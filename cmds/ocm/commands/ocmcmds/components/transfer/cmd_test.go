@@ -1,47 +1,46 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package transfer_test
 
 import (
 	"bytes"
 	"encoding/json"
 
+	. "github.com/mandelsoft/goutils/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/open-component-model/ocm/cmds/ocm/testhelper"
-	. "github.com/open-component-model/ocm/pkg/contexts/oci/testhelper"
-	. "github.com/open-component-model/ocm/pkg/testutils"
+	. "ocm.software/ocm/api/oci/testhelper"
+	. "ocm.software/ocm/cmds/ocm/testhelper"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	"github.com/open-component-model/ocm/pkg/common/accessobj"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/config/config"
-	"github.com/open-component-model/ocm/pkg/contexts/oci"
-	"github.com/open-component-model/ocm/pkg/contexts/oci/artdesc"
-	"github.com/open-component-model/ocm/pkg/contexts/oci/repositories/artifactset"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/accessmethods/ociartifact"
-	metav1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
-	ctfocm "github.com/open-component-model/ocm/pkg/contexts/ocm/repositories/ctf"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/resourcetypes"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/transfer/transferhandler"
-	handlercfg "github.com/open-component-model/ocm/pkg/contexts/ocm/transfer/transferhandler/config"
-	"github.com/open-component-model/ocm/pkg/mime"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/config/extensions/config"
+	"ocm.software/ocm/api/oci"
+	"ocm.software/ocm/api/oci/artdesc"
+	"ocm.software/ocm/api/oci/extensions/repositories/artifactset"
+	"ocm.software/ocm/api/ocm"
+	metav1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	"ocm.software/ocm/api/ocm/extensions/accessmethods/ociartifact"
+	resourcetypes "ocm.software/ocm/api/ocm/extensions/artifacttypes"
+	ctfocm "ocm.software/ocm/api/ocm/extensions/repositories/ctf"
+	ocmutils "ocm.software/ocm/api/ocm/ocmutils"
+	handlercfg "ocm.software/ocm/api/ocm/tools/transfer/transferhandler/config"
+	"ocm.software/ocm/api/utils"
+	"ocm.software/ocm/api/utils/accessio"
+	"ocm.software/ocm/api/utils/accessobj"
+	"ocm.software/ocm/api/utils/mime"
 )
 
-const ARCH = "/tmp/ctf"
-const ARCH2 = "/tmp/ctf2"
-const PROVIDER = "mandelsoft"
-const VERSION = "v1"
-const COMPONENT = "github.com/mandelsoft/test"
-const COMPONENT2 = "github.com/mandelsoft/test2"
-const OUT = "/tmp/res"
-const OCIPATH = "/tmp/oci"
-const OCIHOST = "alias"
+const (
+	ARCH       = "/tmp/ctf"
+	ARCH2      = "/tmp/ctf2"
+	PROVIDER   = "mandelsoft"
+	VERSION    = "v1"
+	COMPONENT  = "github.com/mandelsoft/test"
+	COMPONENT2 = "github.com/mandelsoft/test2"
+	OUT        = "/tmp/res"
+	OCIPATH    = "/tmp/oci"
+	OCIHOST    = "alias"
+)
 
 func CheckComponentInArchive(env *TestEnv, ldesc *artdesc.Descriptor, out string) {
 	tgt, err := ctfocm.Open(env.OCMContext(), accessobj.ACC_READONLY, out, 0, accessio.PathFileSystem(env.FileSystem()))
@@ -72,7 +71,7 @@ func CheckComponent(env *TestEnv, ldesc *artdesc.Descriptor, tgt ocm.Repository)
 
 	racc, err := comp.GetResourceByIndex(1)
 	Expect(err).To(Succeed())
-	reader, err := ocm.ResourceReader(racc)
+	reader, err := ocmutils.GetResourceReader(racc)
 	Expect(err).To(Succeed())
 	defer reader.Close()
 	set, err := artifactset.Open(accessobj.ACC_READONLY, "", 0, accessio.Reader(reader))
@@ -108,7 +107,7 @@ var _ = Describe("Test Environment", func() {
 			env.Component(COMPONENT, func() {
 				env.Version(VERSION, func() {
 					env.Provider(PROVIDER)
-					env.Resource("testdata", "", "PlainText", metav1.LocalRelation, func() {
+					env.Resource("testdata", "", resourcetypes.PLAIN_TEXT, metav1.LocalRelation, func() {
 						env.BlobStringData(mime.MIME_TEXT, "testdata")
 					})
 					env.Resource("value", "", resourcetypes.OCI_IMAGE, metav1.LocalRelation, func() {
@@ -129,8 +128,11 @@ var _ = Describe("Test Environment", func() {
 		env.OCMCommonTransport(ARCH2, accessio.FormatDirectory, func() {
 			env.Component(COMPONENT2, func() {
 				env.Version(VERSION, func() {
-					env.Reference("ref", COMPONENT, VERSION)
 					env.Provider(PROVIDER)
+					env.Resource("otherdate", "", resourcetypes.PLAIN_TEXT, metav1.LocalRelation, func() {
+						env.BlobStringData(mime.MIME_TEXT, "otherdata")
+					})
+					env.Reference("ref", COMPONENT, VERSION)
 				})
 			})
 		})
@@ -145,9 +147,9 @@ var _ = Describe("Test Environment", func() {
 		Expect(env.CatchOutput(buf).Execute("transfer", "components", "--copy-resources", ARCH, ARCH, OUT)).To(Succeed())
 		Expect(buf.String()).To(StringEqualTrimmedWithContext(`
 transferring version "github.com/mandelsoft/test:v1"...
-...resource 0...
-...resource 1(ocm/value:v2.0)...
-...resource 2(ocm/ref:v2.0)...
+...resource 0 testdata[plainText]...
+...resource 1 value[ociImage](ocm/value:v2.0)...
+...resource 2 ref[ociImage](ocm/ref:v2.0)...
 ...adding component version...
 1 versions transferred
 `))
@@ -162,10 +164,11 @@ transferring version "github.com/mandelsoft/test:v1"...
 		Expect(buf.String()).To(StringEqualTrimmedWithContext(`
 transferring version "github.com/mandelsoft/test2:v1"...
   transferring version "github.com/mandelsoft/test:v1"...
-  ...resource 0...
-  ...resource 1(ocm/value:v2.0)...
-  ...resource 2(ocm/ref:v2.0)...
+  ...resource 0 testdata[plainText]...
+  ...resource 1 value[ociImage](ocm/value:v2.0)...
+  ...resource 2 ref[ociImage](ocm/ref:v2.0)...
   ...adding component version...
+...resource 0 otherdate[plainText]...
 ...adding component version...
 2 versions transferred
 `))
@@ -184,14 +187,31 @@ transferring version "github.com/mandelsoft/test2:v1"...
 		CheckComponent(env, ldesc, tgt)
 	})
 
+	It("transfers ctf creating bom file", func() {
+		BOM := "/tmp/bom.json"
+		buf := bytes.NewBuffer(nil)
+		Expect(env.CatchOutput(buf).Execute("transfer", "components", "--bom-file="+BOM, "--copy-resources", "--recursive", "--lookup", ARCH, ARCH2, ARCH2, OUT)).To(Succeed())
+
+		Expect(env.FileExists(BOM)).To(BeTrue())
+
+		data := Must(env.ReadFile(BOM))
+		Expect(data).To(YAMLEqual(`
+  componentVersions:
+  - component: github.com/mandelsoft/test
+    version: v1
+  - component: github.com/mandelsoft/test2
+    version: v1
+`))
+	})
+
 	It("transfers ctf to tgz with type option", func() {
 		buf := bytes.NewBuffer(nil)
 		Expect(env.CatchOutput(buf).Execute("transfer", "components", "--copy-resources", "--type", accessio.FormatTGZ.String(), ARCH, ARCH, OUT)).To(Succeed())
 		Expect(buf.String()).To(StringEqualTrimmedWithContext(`
 transferring version "github.com/mandelsoft/test:v1"...
-...resource 0...
-...resource 1(ocm/value:v2.0)...
-...resource 2(ocm/ref:v2.0)...
+...resource 0 testdata[plainText]...
+...resource 1 value[ociImage](ocm/value:v2.0)...
+...resource 2 ref[ociImage](ocm/ref:v2.0)...
 ...adding component version...
 1 versions transferred
 `))
@@ -205,9 +225,9 @@ transferring version "github.com/mandelsoft/test:v1"...
 		Expect(env.CatchOutput(buf).Execute("transfer", "components", "--copy-resources", ARCH, ARCH, accessio.FormatTGZ.String()+"::"+OUT)).To(Succeed())
 		Expect(buf.String()).To(StringEqualTrimmedWithContext(`
 transferring version "github.com/mandelsoft/test:v1"...
-...resource 0...
-...resource 1(ocm/value:v2.0)...
-...resource 2(ocm/ref:v2.0)...
+...resource 0 testdata[plainText]...
+...resource 1 value[ociImage](ocm/value:v2.0)...
+...resource 2 ref[ociImage](ocm/ref:v2.0)...
 ...adding component version...
 1 versions transferred
 `))
@@ -221,9 +241,9 @@ transferring version "github.com/mandelsoft/test:v1"...
 		Expect(env.CatchOutput(buf).Execute("transfer", "components", "--copy-resources", ARCH, ARCH, "ctf+"+accessio.FormatTGZ.String()+"::"+OUT)).To(Succeed())
 		Expect(buf.String()).To(StringEqualTrimmedWithContext(`
 transferring version "github.com/mandelsoft/test:v1"...
-...resource 0...
-...resource 1(ocm/value:v2.0)...
-...resource 2(ocm/ref:v2.0)...
+...resource 0 testdata[plainText]...
+...resource 1 value[ociImage](ocm/value:v2.0)...
+...resource 2 ref[ociImage](ocm/ref:v2.0)...
 ...adding component version...
 1 versions transferred
 `))
@@ -233,9 +253,8 @@ transferring version "github.com/mandelsoft/test:v1"...
 	})
 
 	It("transfers ctf to ctf+tgz with config option", func() {
-
 		cfg := handlercfg.NewConfig()
-		cfg.ResourcesByValue = transferhandler.BoolP(true)
+		cfg.ResourcesByValue = utils.BoolP(true)
 
 		mod := func(ctx clictx.Context, cmd *cobra.Command) {
 			if cmd == nil {
@@ -246,9 +265,9 @@ transferring version "github.com/mandelsoft/test:v1"...
 		Expect(env.CatchOutput(buf).ExecuteModified(mod, "transfer", "components", ARCH, ARCH, "ctf+"+accessio.FormatTGZ.String()+"::"+OUT)).To(Succeed())
 		Expect(buf.String()).To(StringEqualTrimmedWithContext(`
 transferring version "github.com/mandelsoft/test:v1"...
-...resource 0...
-...resource 1(ocm/value:v2.0)...
-...resource 2(ocm/ref:v2.0)...
+...resource 0 testdata[plainText]...
+...resource 1 value[ociImage](ocm/value:v2.0)...
+...resource 2 ref[ociImage](ocm/ref:v2.0)...
 ...adding component version...
 1 versions transferred
 `))
@@ -259,7 +278,7 @@ transferring version "github.com/mandelsoft/test:v1"...
 
 	It("transfers ctf to ctf+tgz with config set", func() {
 		cfg := handlercfg.NewConfig()
-		cfg.ResourcesByValue = transferhandler.BoolP(true)
+		cfg.ResourcesByValue = utils.BoolP(true)
 
 		cfgcfg := config.New()
 		cfgcfg.AddSet("transfer", "standard transfer options to use")
@@ -274,9 +293,9 @@ transferring version "github.com/mandelsoft/test:v1"...
 		Expect(env.CatchOutput(buf).ExecuteModified(mod, "--config-set", "transfer", "transfer", "components", ARCH, ARCH, "ctf+"+accessio.FormatTGZ.String()+"::"+OUT)).To(Succeed())
 		Expect(buf.String()).To(StringEqualTrimmedWithContext(`
 transferring version "github.com/mandelsoft/test:v1"...
-...resource 0...
-...resource 1(ocm/value:v2.0)...
-...resource 2(ocm/ref:v2.0)...
+...resource 0 testdata[plainText]...
+...resource 1 value[ociImage](ocm/value:v2.0)...
+...resource 2 ref[ociImage](ocm/ref:v2.0)...
 ...adding component version...
 1 versions transferred
 `))

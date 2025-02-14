@@ -2,19 +2,19 @@
 
 ### Synopsis
 
-```
+```bash
 ocm oci [<options>] <sub command> ...
 ```
 
 ### Options
 
-```
+```text
   -h, --help   help for oci
 ```
 
 ### SEE ALSO
 
-##### Parents
+#### Parents
 
 * [ocm](ocm.md)	 &mdash; Open Component Model command line client
 
@@ -29,4 +29,4 @@ ocm oci [<options>] <sub command> ...
 
 ##### Additional Help Topics
 
-* [ocm oci <b>oci-references</b>](ocm_oci_oci-references.md)	 &mdash; notation for OCI references
+* [ocm <b>oci-references</b>](ocm_oci-references.md)	 &mdash; notation for OCI references

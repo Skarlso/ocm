@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package helm
 
 import (
@@ -9,7 +5,7 @@ import (
 
 	"github.com/mandelsoft/logging"
 
-	"github.com/open-component-model/ocm/cmds/helminstaller/app/driver"
+	"ocm.software/ocm/cmds/helminstaller/app/driver"
 )
 
 type Driver struct{}

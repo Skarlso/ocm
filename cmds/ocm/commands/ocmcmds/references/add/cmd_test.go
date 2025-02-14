@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package add_test
 
 import (
@@ -9,19 +5,24 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/open-component-model/ocm/cmds/ocm/testhelper"
+	. "ocm.software/ocm/cmds/ocm/testhelper"
 
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc"
-	metav1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/repositories/comparch"
+	"github.com/mandelsoft/goutils/testutils"
+
+	"ocm.software/ocm/api/ocm/compdesc"
+	metav1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	"ocm.software/ocm/api/ocm/extensions/repositories/comparch"
+	"ocm.software/ocm/api/ocm/selectors/refsel"
 )
 
-const ARCH = "/tmp/ca"
-const VERSION = "v1.1.1"
-const REF = "github.com/mandelsoft/ref"
+const (
+	ARCH    = "/tmp/ca"
+	VERSION = "v1.1.1"
+	REF     = "github.com/mandelsoft/ref"
+)
 
-func CheckReference(env *TestEnv, cd *compdesc.ComponentDescriptor, name string, add ...func(compdesc.ComponentReference)) {
-	rs, _ := cd.GetReferencesByName(name)
+func CheckReference(env *TestEnv, cd *compdesc.ComponentDescriptor, name string, add ...func(compdesc.Reference)) {
+	rs, _ := cd.SelectReferences(refsel.Name(name))
 	if len(rs) != 1 {
 		Fail(fmt.Sprintf("%d reference(s) with name %s found", len(rs), name), 1)
 	}
@@ -56,7 +57,7 @@ var _ = Describe("Add references", func() {
 		CheckReference(env, cd, "testdata")
 	})
 
-	It("adds simple ref wth extra identity", func() {
+	It("adds simple ref with extra identity", func() {
 		Expect(env.Execute("add", "references", "--file", ARCH, "/testdata/referenceswithid.yaml")).To(Succeed())
 		data, err := env.ReadFile(env.Join(ARCH, comparch.ComponentDescriptorFileName))
 		Expect(err).To(Succeed())
@@ -64,7 +65,7 @@ var _ = Describe("Add references", func() {
 		Expect(err).To(Succeed())
 		Expect(len(cd.References)).To(Equal(1))
 
-		CheckReference(env, cd, "testdata", func(r compdesc.ComponentReference) {
+		CheckReference(env, cd, "testdata", func(r compdesc.Reference) {
 			Expect(r.ExtraIdentity).To(Equal(metav1.Identity{"purpose": "test", "label": "local"}))
 		})
 	})
@@ -89,6 +90,15 @@ var _ = Describe("Add references", func() {
 		Expect(len(cd.References)).To(Equal(1))
 
 		CheckReference(env, cd, "testdata")
+	})
+
+	It("adds duplicate references", func() {
+		Expect(env.Execute("add", "references", "--file", ARCH, "/testdata/dupreferences.yaml")).To(Succeed())
+		data, err := env.ReadFile(env.Join(ARCH, comparch.ComponentDescriptorFileName))
+		Expect(err).To(Succeed())
+		cd, err := compdesc.Decode(data)
+		Expect(err).To(Succeed())
+		Expect(len(cd.References)).To(Equal(2))
 	})
 
 	Context("reference by options", func() {
@@ -118,7 +128,7 @@ labels:
 
 			labels := metav1.Labels{}
 			labels.Set("test", "value")
-			CheckReference(env, cd, "testdata", func(r compdesc.ComponentReference) {
+			CheckReference(env, cd, "testdata", func(r compdesc.Reference) {
 				ExpectWithOffset(2, r.GetLabels()).To(Equal(labels))
 			})
 		})
@@ -139,7 +149,7 @@ labels:
 
 			labels := metav1.Labels{}
 			labels.Set("test", "value")
-			CheckReference(env, cd, "testdata", func(r compdesc.ComponentReference) {
+			CheckReference(env, cd, "testdata", func(r compdesc.Reference) {
 				Expect(r.GetLabels()).To(Equal(labels))
 			})
 		})
@@ -154,7 +164,7 @@ labels:
 
 			labels := metav1.Labels{}
 			labels.Set("test", "value")
-			CheckReference(env, cd, "testdata", func(r compdesc.ComponentReference) {
+			CheckReference(env, cd, "testdata", func(r compdesc.Reference) {
 				Expect(r.ExtraIdentity).To(Equal(metav1.Identity{"purpose": "test", "label": "local"}))
 			})
 		})
@@ -170,9 +180,17 @@ labels:
 			labels := metav1.Labels{}
 			labels.Set("purpose", "test", metav1.WithSigning())
 			labels.Set("label", map[string]interface{}{"local": true}, metav1.WithVersion("v1"))
-			CheckReference(env, cd, "testdata", func(r compdesc.ComponentReference) {
+			CheckReference(env, cd, "testdata", func(r compdesc.Reference) {
 				Expect(r.GetLabels()).To(Equal(labels))
 			})
+		})
+	})
+
+	Context("failures", func() {
+		It("rejects adding duplicate ref", func() {
+			testutils.ExpectError(env.Execute("add", "references", "--file", ARCH, "/testdata/references-dup.yaml")).To(
+				MatchError(`duplicate reference identity "name"="testdata","version"="v1.1.1" (/testdata/references-dup.yaml[1][2] and /testdata/references-dup.yaml[1][1])`),
+			)
 		})
 	})
 })

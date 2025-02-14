@@ -2,19 +2,19 @@
 
 ### Synopsis
 
-```
-ocm download componentversions [<options>] {<components>} 
+```bash
+ocm download componentversions [<options>] {<components>}
 ```
 
-##### Aliases
+#### Aliases
 
-```
+```text
 componentversions, componentversion, cv, components, component, comps, comp, c
 ```
 
 ### Options
 
-```
+```text
   -h, --help             help for componentversions
   -O, --outfile string   output file or directory
       --repo string      repository name or spec
@@ -22,7 +22,6 @@ componentversions, componentversion, cv, components, component, comps, comp, c
 ```
 
 ### Description
-
 
 Download component versions from an OCM repository. The result is stored in
 component archives.
@@ -37,7 +36,7 @@ relative to the specified repository using the syntax
     <pre>&lt;component>[:&lt;version>]</pre>
 </center>
 
-If no <code>--repo</code> option is specified the given names are interpreted 
+If no <code>--repo</code> option is specified the given names are interpreted
 as located OCM component version references:
 
 <center>
@@ -60,34 +59,29 @@ The <code>--repo</code> option takes an OCM repository specification:
 For the *Common Transport Format* the types <code>directory</code>,
 <code>tar</code> or <code>tgz</code> is possible.
 
-Using the JSON variant any repository types supported by the 
+Using the JSON variant any repository types supported by the
 linked library can be used:
 
-Dedicated OCM repository types:
-  - <code>ComponentArchive</code>: v1
-
 OCI Repository types (using standard component repository to OCI mapping):
-  - <code>ArtifactSet</code>: v1
+
   - <code>CommonTransportFormat</code>: v1
-  - <code>DockerDaemon</code>: v1
-  - <code>Empty</code>: v1
   - <code>OCIRegistry</code>: v1
   - <code>oci</code>: v1
   - <code>ociRegistry</code>
 
 
 The <code>--type</code> option accepts a file format for the
-target archive to use. The following formats are supported:
+target archive to use. It is only evaluated if the target
+archive does not exist yet. The following formats are supported:
 - directory
 - tar
 - tgz
 
 The default format is <code>directory</code>.
 
-
 ### SEE ALSO
 
-##### Parents
+#### Parents
 
 * [ocm download](ocm_download.md)	 &mdash; Download oci artifacts, resources or complete components
 * [ocm](ocm.md)	 &mdash; Open Component Model command line client

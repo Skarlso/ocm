@@ -2,7 +2,6 @@
 
 ### Description
 
-
 The plugin descriptor describes the capabilities of a plugin. It uses the
 following fields:
 
@@ -45,7 +44,7 @@ following fields:
 
   The list of supported downloaders. Downloaders will be used by the
   CLI download command to provide downloaded artifacts in a filesystem format
-  applicable to the type specific tools, regatdless of the format it is stored
+  applicable to the type specific tools, regardless of the format it is stored
   as blob in a component version. Therefore, they can be registered for
   combination of artifact type and optional mime type (describing the actually
   used blob format).
@@ -56,6 +55,16 @@ following fields:
   library to externalize element or element type related tasks, which
   require dedicated environment specific actions.
   For example, the creation of OCI repositories before an artifact upload.
+
+- **<code>valueMergeHandlers</code>** *[]ValueMergeHandlerDescriptor*
+
+  The list of supported merge handlers. Merge handlers are used to
+  merge label values if a component version is re-transferred to
+  a target repository.
+
+- **<code>labelMergeSpecifications</code>** *[]LabelMergeSpecification*
+
+  The list of assignments of label merge specification to labels.
 
 #### Access Method Descriptor
 
@@ -88,7 +97,7 @@ It uses the following fields:
 
   - **<code>name</code>** *string*
 
-    This required field describe the name of the option. THis might be 
+    This required field describe the name of the option. THis might be
     the name of a preconfigured option, or a new one.
 
   - **<code>type</code>** *string*
@@ -104,38 +113,56 @@ It uses the following fields:
   an option. If required, new options can be defined by additionally specifying
   a type and a description. New options should be used very carefully. The
   chosen names MUST not conflict with names provided by other plugins. Therefore
-  it is highly recommended to use use names prefixed by the plugin name.
+  it is highly recommended to use names prefixed by the plugin name.
 
 
 The following predefined option types can be used:
 
 
+  - <code>accessComponent</code>: [*string*] component for access specification
   - <code>accessHostname</code>: [*string*] hostname used for access
-  - <code>accessPackage</code>: [*string*] package or object name
-  - <code>accessRegistry</code>: [*string*] registry base URL
-  - <code>accessRepository</code>: [*string*] repository URL
+  - <code>accessRepository</code>: [*string*] repository or registry URL
   - <code>accessVersion</code>: [*string*] version for access specification
+  - <code>artifactId</code>: [*string*] maven artifact id
+  - <code>body</code>: [*string*] body of a http request
   - <code>bucket</code>: [*string*] bucket name
+  - <code>classifier</code>: [*string*] maven classifier
+  - <code>comment</code>: [*string*] comment field value
   - <code>commit</code>: [*string*] git commit id
   - <code>digest</code>: [*string*] blob digest
+  - <code>extension</code>: [*string*] maven extension name
   - <code>globalAccess</code>: [*map[string]YAML*] access specification for global access
+  - <code>groupId</code>: [*string*] maven group id
+  - <code>header</code>: [*string:string,string*] http headers
   - <code>hint</code>: [*string*] (repository) hint for local artifacts
+  - <code>identityPath</code>: [*[]identity*] identity path for specification
+  - <code>idpath</code>: [*[]string*] identity path (attr=value{,attr=value}
   - <code>mediaType</code>: [*string*] media type for artifact blob representation
+  - <code>noredirect</code>: [*bool*] http redirect behavior
+  - <code>package</code>: [*string*] npm package name
   - <code>reference</code>: [*string*] reference name
   - <code>region</code>: [*string*] region name
+  - <code>registry</code>: [*string*] npm package registry
   - <code>size</code>: [*int*] blob size
+  - <code>url</code>: [*string*] artifact or server url
+  - <code>verb</code>: [*string*] http request method
+  - <code>version</code>: [*string*] npm package version
 
 The following predefined value types are supported:
 
 
   - <code>YAML</code>: JSON or YAML document string
+  - <code>[]byte</code>: byte value
+  - <code>[]identity</code>: identity path
   - <code>[]string</code>: list of string values
   - <code>bool</code>: boolean flag
   - <code>int</code>: integer value
   - <code>map[string]YAML</code>: JSON or YAML map
   - <code>string</code>: string value
+  - <code>string:string,string</code>: string map defined by dedicated assignment of comma separated strings
   - <code>string=YAML</code>: string map with arbitrary values defined by dedicated assignments
   - <code>string=string</code>: string map defined by dedicated assignments
+  - <code>string=string,string</code>: string map defined by dedicated assignment of comma separated strings
 
 #### Uploader Descriptor
 
@@ -220,7 +247,7 @@ The descriptor for an action has the following fields:
   A list of selectors, for which this action implementation is automatically
   be registered when the plugin is loaded. The selector syntax depends on
   the action type. (For example, the hostname (pattern) for the action
-  <code>oci.repository.prepare</code>). The selectors are eiker directly matched
+  <code>oci.repository.prepare</code>). The selectors are either directly matched
   with action requests or used as regular expression.
 
 - **<code>consumerType</code>** *string* (optional)
@@ -229,13 +256,51 @@ The descriptor for an action has the following fields:
   element the action should work on. But it might be, that other credentials
   are required to fulfill its task. Therefore, the action can request a dedicated
   consumer type used to lookup the credentials. The consumer attributes are
-  derived from the the action specification and cannot be influenced by the
+  derived from the action specification and cannot be influenced by the
   plugin.
 
+### Value Merge Handler Descriptor
+
+The descriptor for a value merge handler has the following fields:
+
+- **<code>name</code>** *string*
+
+  The name of the algorithm.
+
+- **<code>description</code>** *string*
+
+  The description of the algorithm.
+
+### Label Merge Specification
+
+The descriptor for a label merge specification has the following fields:
+
+- **<code>name</code>** *string*
+
+  The name of the label.
+
+- **<code>version</code>** *string* (optional)
+
+  The dedicated label format version the specification should be used for. If no
+  version is specified the setting is valid for all versions without a dedicated
+  assignment.
+
+- **<code>description</code>** *string*
+
+  The details for the merging.
+
+- **<code>algorithm</code>** *string*
+
+  The name of (top-level) the algorithm to use.
+
+- **<code>config</code>** *any* (optional)
+
+  The configuration settings used for the algorithm. It may contain nested
+  merge specifications.
 
 ### Examples
 
-```
+```json
 {
   "version": "v1",
   "pluginName": "test",
@@ -270,7 +335,7 @@ The descriptor for an action has the following fields:
 
 ### SEE ALSO
 
-##### Parents
+#### Parents
 
 * [plugin](plugin.md)	 &mdash; OCM Plugin
 

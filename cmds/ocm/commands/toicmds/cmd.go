@@ -1,20 +1,16 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package toicmds
 
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/toicmds/config"
-	_package "github.com/open-component-model/ocm/cmds/ocm/commands/toicmds/package"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/toicmds/verbs/bootstrap"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/toicmds/verbs/describe"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	topicocmrefs "github.com/open-component-model/ocm/cmds/ocm/topics/ocm/refs"
-	topicbootstrap "github.com/open-component-model/ocm/cmds/ocm/topics/toi/bootstrapping"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/cmds/ocm/commands/toicmds/config"
+	_package "ocm.software/ocm/cmds/ocm/commands/toicmds/package"
+	"ocm.software/ocm/cmds/ocm/commands/toicmds/verbs/bootstrap"
+	"ocm.software/ocm/cmds/ocm/commands/toicmds/verbs/describe"
+	"ocm.software/ocm/cmds/ocm/common/utils"
+	topicocmrefs "ocm.software/ocm/cmds/ocm/topics/ocm/refs"
+	topicbootstrap "ocm.software/ocm/cmds/ocm/topics/toi/bootstrapping"
 )
 
 // NewCommand creates a new command.
@@ -22,16 +18,16 @@ func NewCommand(ctx clictx.Context) *cobra.Command {
 	cmd := utils.MassageCommand(&cobra.Command{
 		Short: "Dedicated command flavors for the TOI layer",
 		Long: `
-TOI is an abbreviation for (T)iny (O)CM (I)nstallation. It is a simple
+TOI is an abbreviation for Tiny OCM Installation. It is a simple
 application framework on top of the Open Component Model, that can
 be used to describe image based installation executors and installation
-packages (see topic <CMD>ocm toi bootstrapping</CMD> in form of resources
+packages (see topic <CMD>ocm toi-bootstrapping</CMD> in form of resources
 with a dedicated type. All involved resources are hereby taken from a component
 version of the Open Component Model, which supports all the OCM features, like
 transportation.
 
 The framework consists of a generic bootstrap command
-(<CMD>ocm toi bootstrap componentversions</CMD>) and an arbitrary set of image
+(<CMD>ocm bootstrap package</CMD>) and an arbitrary set of image
 based executors, that are executed in containers and fed with the required
 installation data by th generic command.
 `,
@@ -43,7 +39,7 @@ installation data by th generic command.
 	cmd.AddCommand(bootstrap.NewCommand(ctx))
 	cmd.AddCommand(describe.NewCommand(ctx))
 
-	cmd.AddCommand(topicocmrefs.New(ctx))
-	cmd.AddCommand(topicbootstrap.New(ctx, "bootstrapping"))
+	cmd.AddCommand(utils.DocuCommandPath(topicocmrefs.New(ctx), "ocm"))
+	cmd.AddCommand(utils.DocuCommandPath(topicbootstrap.New(ctx, "bootstrapping"), "ocm", "toi-bootstrapping"))
 	return cmd
 }

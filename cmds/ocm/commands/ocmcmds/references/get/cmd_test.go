@@ -1,27 +1,25 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package get_test
 
 import (
 	"bytes"
 
+	. "github.com/mandelsoft/goutils/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/open-component-model/ocm/cmds/ocm/testhelper"
-	. "github.com/open-component-model/ocm/pkg/testutils"
+	. "ocm.software/ocm/cmds/ocm/testhelper"
 
-	"github.com/open-component-model/ocm/pkg/common/accessio"
+	"ocm.software/ocm/api/utils/accessio"
 )
 
-const CA = "/tmp/ca"
-const CTF = "/tmp/ctf"
-const VERSION = "v1"
-const COMP = "test.de/x"
-const COMP2 = "test.de/y"
-const COMP3 = "test.de/z"
-const PROVIDER = "mandelsoft"
+const (
+	CA       = "/tmp/ca"
+	CTF      = "/tmp/ctf"
+	VERSION  = "v1"
+	COMP     = "test.de/x"
+	COMP2    = "test.de/y"
+	COMP3    = "test.de/z"
+	PROVIDER = "mandelsoft"
+)
 
 var _ = Describe("Test Environment", func() {
 	var env *TestEnv
@@ -92,7 +90,7 @@ COMPONENTVERSION NAME COMPONENT VERSION IDENTITY
 `))
 		})
 
-		It("lits reference closure in ctf file", func() {
+		It("list reference closure in ctf file", func() {
 			buf := bytes.NewBuffer(nil)
 			Expect(env.CatchOutput(buf).Execute("get", "references", "-r", "-o", "tree", "--lookup", CTF, CA)).To(Succeed())
 			Expect(buf.String()).To(StringEqualTrimmedWithContext(

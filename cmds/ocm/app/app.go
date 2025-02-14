@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 //go:generate go run -mod=mod ../../../hack/generate-docs ../../../docs/reference
 
 package app
@@ -11,83 +7,87 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/toicmds"
-	_ "github.com/open-component-model/ocm/pkg/contexts/clictx/config"
-	_ "github.com/open-component-model/ocm/pkg/contexts/ocm/attrs"
+	_ "ocm.software/ocm/api/cli/config"
+	_ "ocm.software/ocm/api/ocm/extensions/attrs"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/cachecmds"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/misccmds/action"
-	creds "github.com/open-component-model/ocm/cmds/ocm/commands/misccmds/credentials"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocicmds"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds"
-	common2 "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/componentarchive"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/components"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/plugins"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/references"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/resources"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/sources"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs/add"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs/bootstrap"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs/clean"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs/controller"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs/create"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs/describe"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs/download"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs/execute"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs/get"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs/hash"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs/install"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs/show"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs/sign"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs/transfer"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs/verify"
-	cmdutils "github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/cmds/ocm/topics/common/attributes"
-	topicconfig "github.com/open-component-model/ocm/cmds/ocm/topics/common/config"
-	topiccredentials "github.com/open-component-model/ocm/cmds/ocm/topics/common/credentials"
-	topiclogging "github.com/open-component-model/ocm/cmds/ocm/topics/common/logging"
-	topicocirefs "github.com/open-component-model/ocm/cmds/ocm/topics/oci/refs"
-	topicocmaccessmethods "github.com/open-component-model/ocm/cmds/ocm/topics/ocm/accessmethods"
-	topicocmdownloaders "github.com/open-component-model/ocm/cmds/ocm/topics/ocm/downloadhandlers"
-	topicocmrefs "github.com/open-component-model/ocm/cmds/ocm/topics/ocm/refs"
-	topicocmuploaders "github.com/open-component-model/ocm/cmds/ocm/topics/ocm/uploadhandlers"
-	topicbootstrap "github.com/open-component-model/ocm/cmds/ocm/topics/toi/bootstrapping"
-	"github.com/open-component-model/ocm/pkg/cobrautils"
-	"github.com/open-component-model/ocm/pkg/cobrautils/logopts"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/credentials"
-	"github.com/open-component-model/ocm/pkg/contexts/datacontext"
-	"github.com/open-component-model/ocm/pkg/contexts/datacontext/attrs/vfsattr"
-	datacfg "github.com/open-component-model/ocm/pkg/contexts/datacontext/config/attrs"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/registration"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/utils"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/out"
-	"github.com/open-component-model/ocm/pkg/version"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/datacontext/attrs/clicfgattr"
+	"ocm.software/ocm/api/ocm/extensions/attrs/plugincacheattr"
+	"ocm.software/ocm/api/ocm/ocmutils/defaultconfigregistry"
+	"ocm.software/ocm/api/ocm/plugin/registration"
+	"ocm.software/ocm/api/utils/cobrautils"
+	"ocm.software/ocm/api/utils/cobrautils/logopts"
+	"ocm.software/ocm/api/utils/out"
+	"ocm.software/ocm/api/version"
+	config2 "ocm.software/ocm/cmds/ocm/clippi/config"
+	"ocm.software/ocm/cmds/ocm/commands/cachecmds"
+	"ocm.software/ocm/cmds/ocm/commands/common/options/keyoption"
+	"ocm.software/ocm/cmds/ocm/commands/misccmds/action"
+	creds "ocm.software/ocm/cmds/ocm/commands/misccmds/credentials"
+	"ocm.software/ocm/cmds/ocm/commands/ocicmds"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/componentarchive"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/components"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/names"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/plugins"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/pubsub"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/references"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/resources"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/routingslips"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/sources"
+	"ocm.software/ocm/cmds/ocm/commands/plugin"
+	"ocm.software/ocm/cmds/ocm/commands/toicmds"
+	"ocm.software/ocm/cmds/ocm/commands/verbs"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/add"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/bootstrap"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/check"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/clean"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/controller"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/create"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/describe"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/download"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/execute"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/get"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/hash"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/install"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/list"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/set"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/show"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/sign"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/transfer"
+	"ocm.software/ocm/cmds/ocm/commands/verbs/verify"
+	cmdutils "ocm.software/ocm/cmds/ocm/common/utils"
+	"ocm.software/ocm/cmds/ocm/topics/common/attributes"
+	topicconfig "ocm.software/ocm/cmds/ocm/topics/common/config"
+	topiccredentials "ocm.software/ocm/cmds/ocm/topics/common/credentials"
+	topiclogging "ocm.software/ocm/cmds/ocm/topics/common/logging"
+	topicocirefs "ocm.software/ocm/cmds/ocm/topics/oci/refs"
+	topicocmaccessmethods "ocm.software/ocm/cmds/ocm/topics/ocm/accessmethods"
+	topicocmdownloaders "ocm.software/ocm/cmds/ocm/topics/ocm/downloadhandlers"
+	topicocmlabels "ocm.software/ocm/cmds/ocm/topics/ocm/labels"
+	topicocmpubsub "ocm.software/ocm/cmds/ocm/topics/ocm/pubsub"
+	topicocmrefs "ocm.software/ocm/cmds/ocm/topics/ocm/refs"
+	topicocmuploaders "ocm.software/ocm/cmds/ocm/topics/ocm/uploadhandlers"
+	topicbootstrap "ocm.software/ocm/cmds/ocm/topics/toi/bootstrapping"
 )
 
 type CLIOptions struct {
-	Completed   bool
-	Config      string
-	ConfigSets  []string
-	Credentials []string
-	Context     clictx.Context
-	Settings    []string
-	Verbose     bool
-	LogOpts     logopts.Options
-	Version     bool
+	config2.Config
+	Completed bool
+	Version   bool
+
+	*config2.EvaluatedOptions
+	Context clictx.Context
 }
 
 var desc = `
-The Open Component Model command line client support the work with OCM
-artifacts, like Component Archives, Common Transport Archive,  
-Component Repositories, and component versions.
+The Open Component Model command line client supports the work with OCM
+artifacts, like Common Transport Archive,
+Component Repositories, and Component Versions.
 
 Additionally it provides some limited support for the docker daemon, OCI artifacts and
 registries.
@@ -99,12 +99,21 @@ It can be used in two ways:
 
 The command accepts some top level options, they can only be given before the sub commands.
 
+A configuration according to <CMD>ocm configfile</CMD> is read from a <code>.ocmconfig</code> file
+located in the <code>HOME</code> directory. With the option <code>--config</code> other
+file locations can be specified. If nothing is specified and no file is found at the default
+location a default configuration is composed according to known type specific
+configuration files.
+
+The following configuration sources are used:
+` + defaultconfigregistry.Description() + `
+
 With the option <code>--cred</code> it is possible to specify arbitrary credentials
-for various environments on the command line. Nevertheless it is always preferrable
+for various environments on the command line. Nevertheless it is always preferable
 to use the cli config file.
 Every credential setting is related to a dedicated consumer and provides a set of
 credential attributes. All this can be specified by a sequence of <code>--cred</code>
-options. 
+options.
 
 Every option value has the format
 
@@ -112,7 +121,7 @@ Every option value has the format
     <pre>--cred [:]&lt;attr>=&lt;value></pre>
 </center>
 
-Consumer identity attributes are prefixed with the colon (:). A credential settings
+Consumer identity attributes are prefixed with the colon ':'. A credential settings
 always start with a sequence of at least one identity attributes, followed by a
 sequence of credential attributes.
 If a credential attribute is followed by an identity attribute a new credential setting
@@ -124,18 +133,18 @@ default credential, always used if no dedicated match is found.
 For example:
 
 <center>
-    <pre>--cred :type=ociRegistry --cred :hostname=ghcr.io --cred username=mandelsoft --cred password=xyz</pre>
+    <pre>--cred :type=OCIRegistry --cred :hostname=ghcr.io --cred username=mandelsoft --cred password=xyz</pre>
 </center>
 
-With the option <code>-X</code> it is possible to pass global settings of the 
-form 
+With the option <code>-X</code> it is possible to pass global settings of the
+form
 
 <center>
     <pre>-X &lt;attribute>=&lt;value></pre>
 </center>
 ` + logopts.Description + `
 The value can be a simple type or a JSON/YAML string for complex values
-(see <CMD>ocm attributes</CMD>. The following attributes are supported:
+(see <CMD>ocm attributes</CMD>). The following attributes are supported:
 ` + attributes.Attributes() + `
 
 For several options (like <code>-X</code>) it is possible to pass complex values
@@ -154,7 +163,7 @@ Often a tagged value can also be substituted from a file with the syntax
 <center>
 <code>&lt;attr>=@&lt;filepath></code>
 </center>
-`
+` + keyoption.Usage()
 
 // NewCliCommandForArgs is the regular way to instantiate a new CLI command.
 // It observes settings provides by options for the main command.
@@ -168,6 +177,7 @@ func NewCliCommandForArgs(ctx clictx.Context, args []string, mod ...func(clictx.
 	if err != nil {
 		return nil, err
 	}
+	clicfgattr.Set(ctx.OCMContext(), opts.ConfigForward)
 	cmd := newCliCommand(opts, mod...)
 	cmd.SetArgs(args)
 	return cmd, nil
@@ -214,7 +224,10 @@ func newCliCommand(opts *CLIOptions, mod ...func(clictx.Context, *cobra.Command)
 
 	cmd.AddCommand(NewVersionCommand(opts.Context))
 
+	cmd.AddCommand(check.NewCommand(opts.Context))
 	cmd.AddCommand(get.NewCommand(opts.Context))
+	cmd.AddCommand(set.NewCommand(opts.Context))
+	cmd.AddCommand(list.NewCommand(opts.Context))
 	cmd.AddCommand(create.NewCommand(opts.Context))
 	cmd.AddCommand(add.NewCommand(opts.Context))
 	cmd.AddCommand(sign.NewCommand(opts.Context))
@@ -230,6 +243,7 @@ func newCliCommand(opts *CLIOptions, mod ...func(clictx.Context, *cobra.Command)
 	cmd.AddCommand(execute.NewCommand(opts.Context))
 	cmd.AddCommand(controller.NewCommand(opts.Context))
 
+	//nolint:staticcheck // Deprecated: Component Archive (CA) - https://kubernetes.slack.com/archives/C05UWBE8R1D/p1734357630853489
 	cmd.AddCommand(cmdutils.HideCommand(componentarchive.NewCommand(opts.Context)))
 	cmd.AddCommand(cmdutils.HideCommand(resources.NewCommand(opts.Context)))
 	cmd.AddCommand(cmdutils.HideCommand(references.NewCommand(opts.Context)))
@@ -237,6 +251,8 @@ func newCliCommand(opts *CLIOptions, mod ...func(clictx.Context, *cobra.Command)
 	cmd.AddCommand(cmdutils.HideCommand(components.NewCommand(opts.Context)))
 	cmd.AddCommand(cmdutils.HideCommand(plugins.NewCommand(opts.Context)))
 	cmd.AddCommand(cmdutils.HideCommand(action.NewCommand(opts.Context)))
+	cmd.AddCommand(cmdutils.HideCommand(routingslips.NewCommand(opts.Context)))
+	cmd.AddCommand(cmdutils.HideCommand(pubsub.NewCommand(opts.Context)))
 
 	cmd.AddCommand(cmdutils.OverviewCommand(cachecmds.NewCommand(opts.Context)))
 	cmd.AddCommand(cmdutils.OverviewCommand(ocicmds.NewCommand(opts.Context)))
@@ -245,14 +261,9 @@ func newCliCommand(opts *CLIOptions, mod ...func(clictx.Context, *cobra.Command)
 	cmd.AddCommand(cmdutils.OverviewCommand(creds.NewCommand(opts.Context)))
 
 	opts.AddFlags(cmd.Flags())
-	cmd.InitDefaultHelpCmd()
-	var help *cobra.Command
-	for _, c := range cmd.Commands() {
-		if c.Name() == "help" {
-			help = c
-			break
-		}
-	}
+
+	help := cobrautils.TweakHelpCommandFor(cmd)
+
 	// help.Use="help <topic>"
 	help.DisableFlagsInUseLine = true
 	cmd.AddCommand(topicconfig.New(ctx))
@@ -263,6 +274,8 @@ func newCliCommand(opts *CLIOptions, mod ...func(clictx.Context, *cobra.Command)
 	cmd.AddCommand(topicocmaccessmethods.New(ctx))
 	cmd.AddCommand(topicocmuploaders.New(ctx))
 	cmd.AddCommand(topicocmdownloaders.New(ctx))
+	cmd.AddCommand(topicocmlabels.New(ctx))
+	cmd.AddCommand(topicocmpubsub.New(ctx))
 	cmd.AddCommand(attributes.New(ctx))
 	cmd.AddCommand(topicbootstrap.New(ctx, "toi-bootstrapping"))
 
@@ -274,8 +287,71 @@ func newCliCommand(opts *CLIOptions, mod ...func(clictx.Context, *cobra.Command)
 	help.AddCommand(topicocmaccessmethods.New(ctx))
 	help.AddCommand(topicocmuploaders.New(ctx))
 	help.AddCommand(topicocmdownloaders.New(ctx))
+	help.AddCommand(topicocmlabels.New(ctx))
+	help.AddCommand(topicocmpubsub.New(ctx))
 	help.AddCommand(attributes.New(ctx))
 	help.AddCommand(topicbootstrap.New(ctx, "toi-bootstrapping"))
+
+	// register CLI extension commands
+	pi := plugincacheattr.Get(ctx)
+
+	for _, n := range pi.PluginNames() {
+		p := pi.Get(n)
+		if !p.IsValid() {
+			continue
+		}
+		for _, c := range p.GetDescriptor().Commands {
+			if c.Verb != "" {
+				objtype := c.Name
+				if c.ObjectType != "" {
+					objtype = c.ObjectType
+				}
+				v := cobrautils.Find(cmd, c.Verb)
+				if v == nil {
+					v = verbs.NewCommand(ctx, c.Verb, "additional plugin based commands")
+					cmd.AddCommand(v)
+				}
+				types := []string{objtype}
+				if len(names.Aliases[objtype]) != 0 {
+					types = names.Aliases[objtype]
+				}
+
+				s := cobrautils.Find(v, objtype)
+				if s != nil {
+					out.Errf(opts.Context, "duplicate cli command %q of plugin %q for verb %q", objtype, p.Name(), c.Verb)
+				} else {
+					cmd := plugin.NewCommand(ctx, p, c.Name, types...)
+					v.AddCommand(cmd)
+				}
+
+				if c.Realm != "" {
+					r := cobrautils.Find(cmd, c.Realm)
+					if r == nil {
+						out.Errf(opts.Context, "unknown realm %q for cli command %q of plugin %q", c.Realm, objtype, p.Name())
+					} else {
+						v := cobrautils.Find(r, objtype)
+						if v == nil {
+							out.Errf(opts.Context, "unknown object %q for cli command %q of plugin %q", c.Realm, objtype, p.Name())
+						} else {
+							s := cobrautils.Find(v, c.Verb)
+							if s != nil {
+								out.Errf(opts.Context, "duplicate cli command %q of plugin %q for realm %q verb %q", objtype, p.Name(), c.Realm, c.Verb)
+							} else {
+								v.AddCommand(plugin.NewCommand(ctx, p, c.Verb))
+							}
+						}
+					}
+				}
+			} else {
+				s := cobrautils.Find(cmd, c.Name)
+				if s != nil {
+					out.Errf(opts.Context, "duplicate top-level cli command %q of plugin %q", c.Name, p.Name())
+				} else {
+					cmd.AddCommand(plugin.NewCommand(ctx, p, c.Name))
+				}
+			}
+		}
+	}
 
 	for _, m := range mod {
 		if m != nil {
@@ -286,14 +362,9 @@ func newCliCommand(opts *CLIOptions, mod ...func(clictx.Context, *cobra.Command)
 }
 
 func (o *CLIOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVarP(&o.Config, "config", "", "", "configuration file")
-	fs.StringSliceVarP(&o.ConfigSets, "config-set", "", nil, "apply configuration set")
-	fs.StringArrayVarP(&o.Credentials, "cred", "C", nil, "credential setting")
-	fs.StringArrayVarP(&o.Settings, "attribute", "X", nil, "attribute setting")
-	fs.BoolVarP(&o.Verbose, "verbose", "v", false, "deprecated: enable logrus verbose logging")
-	fs.BoolVarP(&o.Version, "version", "", false, "show version") // otherwise it is implicitly added by cobra
+	o.Config.AddFlags(fs)
 
-	o.LogOpts.AddFlags(fs)
+	fs.BoolVarP(&o.Version, "version", "", false, "show version") // otherwise it is implicitly added by cobra
 }
 
 func (o *CLIOptions) Close() error {
@@ -301,6 +372,8 @@ func (o *CLIOptions) Close() error {
 }
 
 func (o *CLIOptions) Complete() error {
+	var err error
+
 	if o.Completed {
 		return nil
 	}
@@ -310,73 +383,18 @@ func (o *CLIOptions) Complete() error {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
-	err := o.LogOpts.Configure(o.Context.OCMContext(), nil)
+	old := o.Context.ConfigContext().SkipUnknownConfig(true)
+	defer o.Context.ConfigContext().SkipUnknownConfig(old)
+
+	o.EvaluatedOptions, err = o.Config.Evaluate(o.Context.OCMContext(), true)
 	if err != nil {
 		return err
 	}
-	_, err = utils.Configure(o.Context.OCMContext(), o.Config, vfsattr.Get(o.Context))
+	err = registration.RegisterExtensions(o.Context)
 	if err != nil {
 		return err
 	}
-
-	for _, n := range o.ConfigSets {
-		err := o.Context.ConfigContext().ApplyConfigSet(n)
-		if err != nil {
-			return err
-		}
-	}
-
-	id := credentials.ConsumerIdentity{}
-	attrs := common.Properties{}
-	for _, s := range o.Credentials {
-		i := strings.Index(s, "=")
-		if i < 0 {
-			return errors.ErrInvalid("credential setting", s)
-		}
-		name := s[:i]
-		value := s[i+1:]
-		if strings.HasPrefix(name, ":") {
-			if len(attrs) != 0 {
-				o.Context.CredentialsContext().SetCredentialsForConsumer(id, credentials.NewCredentials(attrs))
-				id = credentials.ConsumerIdentity{}
-				attrs = common.Properties{}
-			}
-			name = name[1:]
-			id[name] = value
-		} else {
-			attrs[name] = value
-		}
-		if len(name) == 0 {
-			return errors.ErrInvalid("credential setting", s)
-		}
-	}
-	if len(attrs) != 0 {
-		o.Context.CredentialsContext().SetCredentialsForConsumer(id, credentials.NewCredentials(attrs))
-	} else if len(id) != 0 {
-		return errors.Newf("empty credential attribute set for %s", id.String())
-	}
-
-	set, err := common2.ParseLabels(o.Context.FileSystem(), o.Settings, "attribute setting")
-	if err != nil {
-		return errors.Wrapf(err, "invalid attribute setting")
-	}
-	if len(set) > 0 {
-		ctx := o.Context.ConfigContext()
-		spec := datacfg.New()
-		for _, s := range set {
-			attr := s.Name
-			eff := datacontext.DefaultAttributeScheme.Shortcuts()[attr]
-			if eff != "" {
-				attr = eff
-			}
-			err = spec.AddRawAttribute(attr, s.Value)
-			if err != nil {
-				return errors.Wrapf(err, "attribute %s", s.Name)
-			}
-		}
-		_ = ctx.ApplyConfig(spec, "cli")
-	}
-	return registration.RegisterExtensions(o.Context.OCMContext())
+	return o.Context.ConfigContext().Validate()
 }
 
 func prepare(s string) string {
@@ -408,7 +426,7 @@ func NewVersionCommand(ctx clictx.Context) *cobra.Command {
 		Run: func(_ *cobra.Command, _ []string) {
 			v := version.Get()
 			s := fmt.Sprintf("%#v", v)
-			out.Outf(ctx, "%s\n", prepare(s[strings.Index(s, "{"):]))
+			out.Outf(ctx, "%s\n", prepare(s[strings.Index(s, "{"):])) //nolint:gocritic // yes
 		},
 	}
 }

@@ -1,24 +1,18 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package elemhdlr
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/common/options/closureoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/handlers/comphdlr"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/output"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/tree"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc"
-	metav1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
-	"github.com/open-component-model/ocm/pkg/errors"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm"
+	"ocm.software/ocm/api/ocm/compdesc"
+	metav1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	common "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/handlers/comphdlr"
+	"ocm.software/ocm/cmds/ocm/common/output"
+	"ocm.software/ocm/cmds/ocm/common/tree"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 type Object struct {
@@ -27,6 +21,7 @@ type Object struct {
 	VersionId metav1.Identity
 
 	Spec    metav1.Identity
+	Index   int
 	Id      metav1.Identity
 	Node    *common.NameVersion
 	Element compdesc.ElementMetaAccessor
@@ -42,8 +37,8 @@ var (
 )
 
 type Manifest struct {
-	History common.History               `json:"context"`
-	Element compdesc.ElementMetaAccessor `json:"element"`
+	History common.History   `json:"context"`
+	Element compdesc.Element `json:"element"`
 }
 
 func (o *Object) AsManifest() interface{} {
@@ -95,28 +90,13 @@ type TypeHandler struct {
 	kind       string
 	forceEmpty bool
 	filter     ElementFilter
-	elemaccess func(ocm.ComponentVersionAccess) compdesc.ElementAccessor
+	elemaccess func(ocm.ComponentVersionAccess) compdesc.ElementListAccessor
 }
 
-func NewTypeHandler(octx clictx.OCM, oopts *output.Options, repobase ocm.Repository, session ocm.Session, kind string, compspecs []string, elemaccess func(ocm.ComponentVersionAccess) compdesc.ElementAccessor, hopts ...Option) (utils.TypeHandler, error) {
-	copts := MapToCompHandlerOptions(hopts...)
-	h := comphdlr.NewTypeHandler(octx, session, repobase, copts...)
-
-	comps := output.NewElementOutput(octx.Context().LoggingContext(), nil, closureoption.Closure(oopts, comphdlr.ClosureExplode, comphdlr.Sort))
-	err := utils.HandleOutput(comps, h, utils.StringElemSpecs(compspecs...)...)
+func NewTypeHandler(octx clictx.OCM, oopts *output.Options, repobase ocm.Repository, session ocm.Session, kind string, compspecs []string, elemaccess func(ocm.ComponentVersionAccess) compdesc.ElementListAccessor, hopts ...Option) (utils.TypeHandler, error) {
+	components, err := comphdlr.Evaluate(octx, session, repobase, compspecs, oopts, MapToCompHandlerOptions(hopts...)...)
 	if err != nil {
 		return nil, err
-	}
-	components := []*comphdlr.Object{}
-	i := comps.Elems.Iterator()
-	for i.HasNext() {
-		components = append(components, i.Next().(*comphdlr.Object))
-	}
-	if len(components) == 0 {
-		if len(compspecs) == 0 {
-			return nil, errors.Newf("no component version specified")
-		}
-		return nil, errors.Newf("no component version found")
 	}
 
 	t := &TypeHandler{
@@ -168,9 +148,10 @@ func (h *TypeHandler) all(c *comphdlr.Object) ([]output.Object, error) {
 			e := elemaccess.Get(i)
 			if h.filterElement(e) {
 				result = append(result, &Object{
-					History:   append(c.History, common.VersionedElementKey(c.ComponentVersion)),
+					History:   c.History.Append(common.VersionedElementKey(c.ComponentVersion)),
 					Version:   c.ComponentVersion,
 					VersionId: c.Identity,
+					Index:     i,
 					Id:        e.GetMeta().GetIdentity(elemaccess),
 					Element:   e,
 				})
@@ -179,9 +160,10 @@ func (h *TypeHandler) all(c *comphdlr.Object) ([]output.Object, error) {
 
 		if len(result) == 0 && h.forceEmpty {
 			result = append(result, &Object{
-				History:   append(c.History, common.VersionedElementKey(c.ComponentVersion)),
+				History:   c.History.Append(common.VersionedElementKey(c.ComponentVersion)),
 				Version:   c.ComponentVersion,
 				VersionId: c.Identity,
+				Index:     -1,
 				Id:        metav1.Identity{},
 				Element:   nil,
 			})
@@ -221,9 +203,10 @@ func (h *TypeHandler) get(c *comphdlr.Object, elemspec utils.ElemSpec) ([]output
 		ok, _ := selector.Match(eid)
 		if ok {
 			result = append(result, &Object{
-				History:   append(c.History, common.VersionedElementKey(c.ComponentVersion)),
+				History:   c.History.Append(common.VersionedElementKey(c.ComponentVersion)),
 				Version:   c.ComponentVersion,
 				VersionId: c.Identity,
+				Index:     i,
 				Spec:      selector,
 				Id:        m.GetIdentity(elemaccess),
 				Element:   e,
@@ -232,9 +215,10 @@ func (h *TypeHandler) get(c *comphdlr.Object, elemspec utils.ElemSpec) ([]output
 	}
 	if len(result) == 0 && h.forceEmpty {
 		result = append(result, &Object{
-			History:   append(c.History, common.VersionedElementKey(c.ComponentVersion)),
+			History:   c.History.Append(common.VersionedElementKey(c.ComponentVersion)),
 			Version:   c.ComponentVersion,
 			VersionId: c.Identity,
+			Index:     -1,
 			Id:        metav1.Identity{},
 			Element:   nil,
 		})

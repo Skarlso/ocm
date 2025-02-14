@@ -1,17 +1,13 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package components
 
 import (
 	"github.com/spf13/cobra"
 
-	ocmcomp "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/components"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/names"
-	toicomp "github.com/open-component-model/ocm/cmds/ocm/commands/toicmds/package"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
+	clictx "ocm.software/ocm/api/cli"
+	ocmcomp "ocm.software/ocm/cmds/ocm/commands/ocmcmds/components"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/names"
+	toicomp "ocm.software/ocm/cmds/ocm/commands/toicmds/package"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 var Names = names.Components

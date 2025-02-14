@@ -1,25 +1,42 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package comp
 
 import (
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/transfer"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/transfer/transferhandler"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/finalizer"
-	"github.com/open-component-model/ocm/pkg/generics"
-	"github.com/open-component-model/ocm/pkg/out"
+	"fmt"
+
+	"github.com/mandelsoft/goutils/errors"
+	"github.com/mandelsoft/goutils/finalizer"
+	"github.com/mandelsoft/goutils/set"
+	"github.com/mandelsoft/goutils/sliceutils"
+
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm"
+	"ocm.software/ocm/api/ocm/tools/transfer"
+	"ocm.software/ocm/api/ocm/tools/transfer/transferhandler"
+	common "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/api/utils/out"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
 )
 
 func ProcessComponents(ctx clictx.Context, ictx inputs.Context, repo ocm.Repository, complete ocm.ComponentVersionResolver, thdlr transferhandler.TransferHandler, h *ResourceSpecHandler, elems []addhdlrs.Element) (err error) {
-	index := generics.Set[common.NameVersion]{}
+	list := errors.ErrorList{}
+
+	for _, elem := range elems {
+		if r, ok := elem.Spec().(*ResourceSpec); ok {
+			if len(r.References) > 0 && len(r.OldReferences) > 0 {
+				return fmt.Errorf("only field references or componentReferences (deprecated) is possible")
+			}
+			list.Add(addhdlrs.ValidateElementSpecIdentities("resource", elem.Source().String(), sliceutils.Convert[addhdlrs.ElementSpec](r.Resources)))
+			list.Add(addhdlrs.ValidateElementSpecIdentities("source", elem.Source().String(), sliceutils.Convert[addhdlrs.ElementSpec](r.Sources)))
+			list.Add(addhdlrs.ValidateElementSpecIdentities("reference", elem.Source().String(), sliceutils.Convert[addhdlrs.ElementSpec](r.References)))
+			list.Add(addhdlrs.ValidateElementSpecIdentities("reference", elem.Source().String(), sliceutils.Convert[addhdlrs.ElementSpec](r.OldReferences)))
+		}
+	}
+	if err := list.Result(); err != nil {
+		return err
+	}
+
+	index := set.New[common.NameVersion]()
 	for _, elem := range elems {
 		if r, ok := elem.Spec().(*ResourceSpec); ok {
 			index.Add(common.NewNameVersion(r.Name, r.Version))

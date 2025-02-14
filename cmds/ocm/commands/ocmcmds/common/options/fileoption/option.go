@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package fileoption
 
 import (
@@ -11,10 +7,10 @@ import (
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/pflag"
 
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/options"
-	"github.com/open-component-model/ocm/pkg/cobrautils/flag"
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	"github.com/open-component-model/ocm/pkg/common/compression"
+	"ocm.software/ocm/api/utils"
+	"ocm.software/ocm/api/utils/cobrautils/flag"
+	"ocm.software/ocm/api/utils/compression"
+	"ocm.software/ocm/cmds/ocm/common/options"
 )
 
 func From(o options.OptionSetProvider) *Option {
@@ -23,6 +19,7 @@ func From(o options.OptionSetProvider) *Option {
 	return opt
 }
 
+// Deprecated: Component Archive (CA) - https://kubernetes.slack.com/archives/C05UWBE8R1D/p1734357630853489
 func NewCompArch() *Option {
 	return New("component-archive")
 }
@@ -58,10 +55,11 @@ func (o *Option) GetPath(args []string, fss ...vfs.FileSystem) (string, []string
 		return o.Path, args
 	}
 
-	fs := accessio.FileSystem(fss...)
+	fs := utils.FileSystem(fss...)
 	if ok, err := vfs.Exists(fs, args[0]); !ok || err != nil {
 		return o.Path, args
 	}
+	// ignored: I can't rewrite this whole segment.
 	if ok, _ := vfs.IsDir(fs, args[0]); ok {
 		return args[0], args[1:]
 	}

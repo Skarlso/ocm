@@ -1,23 +1,19 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package uploaders
 
 import (
 	"os"
 
 	"github.com/mandelsoft/filepath/pkg/filepath"
+	"github.com/mandelsoft/goutils/errors"
 
-	"github.com/open-component-model/ocm/cmds/demoplugin/accessmethods"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/plugin/ppi"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/runtime"
+	"ocm.software/ocm/api/ocm/plugin/ppi"
+	"ocm.software/ocm/api/utils/iotools"
+	common "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/api/utils/runtime"
+	"ocm.software/ocm/cmds/demoplugin/accessmethods"
 )
 
-type writer = accessio.DigestWriter
+type writer = iotools.DigestWriter
 
 type Writer struct {
 	*writer
@@ -32,7 +28,7 @@ type Writer struct {
 
 func NewWriter(file *os.File, path string, media string, rename bool, name, version string) *Writer {
 	return &Writer{
-		writer:  accessio.NewDefaultDigestWriter(file),
+		writer:  iotools.NewDefaultDigestWriter(file),
 		file:    file,
 		path:    path,
 		rename:  rename,

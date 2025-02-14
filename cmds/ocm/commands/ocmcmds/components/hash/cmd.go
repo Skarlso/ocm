@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package hash
 
 import (
@@ -9,25 +5,27 @@ import (
 	"strings"
 
 	"github.com/mandelsoft/filepath/pkg/filepath"
+	"github.com/mandelsoft/goutils/errors"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/common/options/closureoption"
-	ocmcommon "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/handlers/comphdlr"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/hashoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/repooption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/versionconstraintsoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/names"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/output"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/processing"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm"
+	"ocm.software/ocm/api/ocm/compdesc"
+	common "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/api/utils/out"
+	"ocm.software/ocm/cmds/ocm/commands/common/options/closureoption"
+	ocmcommon "ocm.software/ocm/cmds/ocm/commands/ocmcmds/common"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/handlers/comphdlr"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/hashoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/repooption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/versionconstraintsoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/names"
+	"ocm.software/ocm/cmds/ocm/commands/verbs"
+	"ocm.software/ocm/cmds/ocm/common/output"
+	"ocm.software/ocm/cmds/ocm/common/processing"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 var (
@@ -62,9 +60,10 @@ Hash lists normalized forms for all component versions specified, if only a comp
 all versions are listed.
 `,
 		Example: `
-$ ocm hash componentversion ghcr.io/mandelsoft/kubelink
-$ ocm hash componentversion --repo OCIRegistry::ghcr.io mandelsoft/kubelink
+$ ocm hash componentversion ghcr.io/open-component-model/ocm//ocm.software/ocmcli:0.17.0
+$ ocm hash componentversion --repo OCIRegistry::ghcr.io/open-component-model/ocm ocm.software/ocmcli:0.17.0
 `,
+		Annotations: map[string]string{"ExampleCodeStyle": "bash"},
 	}
 }
 
@@ -76,11 +75,11 @@ func (o *Command) Complete(args []string) error {
 	return nil
 }
 
-func (o *Command) Run() error {
+func (o *Command) Run() (err error) {
 	session := ocm.NewSession(nil)
-	defer session.Close()
+	defer errors.PropagateError(&err, session.Close)
 
-	err := o.ProcessOnOptions(ocmcommon.CompleteOptionsWithSession(o, session))
+	err = o.ProcessOnOptions(ocmcommon.CompleteOptionsWithSession(o, session))
 	if err != nil {
 		return err
 	}
@@ -91,7 +90,7 @@ func (o *Command) Run() error {
 	}
 
 	handler := comphdlr.NewTypeHandler(o.Context.OCM(), session, repooption.From(o).Repository, comphdlr.OptionsFor(o))
-	return utils.HandleArgs(output.From(o), handler, o.Refs...)
+	return utils.HandleArgs(output.From(o).WithSession(session), handler, o.Refs...)
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -101,12 +100,12 @@ func addIdentityField(e interface{}) []string {
 	return []string{p.Identity.String()}
 }
 
-func TableOutput(opts *output.Options, h *handler, mapping processing.MappingFunction, wide ...string) *output.TableOutput {
+func TableOutput(opts *output.Options, h *action, mapping processing.MappingFunction, wide ...string) *output.TableOutput {
 	def := &output.TableOutput{
 		Headers: output.Fields("COMPONENT", "VERSION", "HASH", wide),
 		Options: opts,
-		Chain:   comphdlr.Sort.Map(h.digester),
-		Mapping: mapping,
+		Chain:   comphdlr.Sort,
+		Mapping: processing.MappingSequence(h.digester, mapping),
 	}
 	return closureoption.TableOutput(def, comphdlr.ClosureExplode)
 }
@@ -137,28 +136,29 @@ var outputs = output.NewOutputs(getRegular, output.Outputs{
 }).AddChainedManifestOutputs(output.ComposeChain(closureoption.OutputChainFunction(comphdlr.ClosureExplode, comphdlr.Sort), mapManifest))
 
 func mapManifest(opts *output.Options) processing.ProcessChain {
-	h := newHandler(opts)
+	h := newAction(opts)
 	return processing.Map(h.digester).Map(h.manifester)
 }
 
 func getRegular(opts *output.Options) output.Output {
-	h := newHandler(opts)
+	h := newAction(opts)
 	return TableOutput(opts, h, h.mapGetRegularOutput).New()
 }
 
 func getWide(opts *output.Options) output.Output {
-	h := newHandler(opts)
+	h := newAction(opts)
 	return TableOutput(opts, h, h.mapGetWideOutput, "NORMALIZED FORM").New()
 }
 
 func getNorm(opts *output.Options) output.Output {
-	h := newHandler(opts)
+	h := newAction(opts)
 	return h
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type handler struct {
+// action as output.Output.
+type action struct {
 	ctx  clictx.Context
 	opts *hashoption.Option
 	mode *Option
@@ -166,10 +166,7 @@ type handler struct {
 	norms map[common.NameVersion]string
 }
 
-//////////
-// handler as output.Output
-
-func (h *handler) Add(e interface{}) error {
+func (h *action) Add(e interface{}) error {
 	m := h._manifester(h.digester(e))
 	if m.Error != "" {
 		return fmt.Errorf("cannot handle %s: %s\n", m.History, m.Error)
@@ -178,25 +175,32 @@ func (h *handler) Add(e interface{}) error {
 	return nil
 }
 
-func (h *handler) Close() error {
+func (h *action) Close() error {
 	return nil
 }
 
-func (h *handler) Out() error {
+func (h *action) Out() error {
 	if len(h.norms) > 1 {
-		dir := h.mode.outfile
-		if strings.HasSuffix(dir, ".ncd") {
-			dir = dir[:len(dir)-4]
-		}
-		err := h.ctx.FileSystem().Mkdir(dir, 0o755)
-		if err != nil {
-			return fmt.Errorf("cannot create output dir %s", dir)
-		}
-		for k, n := range h.norms {
-			p := filepath.Join(dir, k.String())
-			err := h.write(p+".ncd", n)
+		if h.mode.outfile == "" || h.mode.outfile == "-" {
+			for _, n := range h.norms {
+				err := h.write(h.mode.outfile, n)
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			dir := h.mode.outfile
+			dir = strings.TrimSuffix(dir, ".ncd")
+			err := h.ctx.FileSystem().Mkdir(dir, 0o755)
 			if err != nil {
-				return err
+				return fmt.Errorf("cannot create output dir %s", dir)
+			}
+			for k, n := range h.norms {
+				p := filepath.Join(dir, k.String())
+				err := h.write(p+".ncd", n)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	} else {
@@ -207,19 +211,24 @@ func (h *handler) Out() error {
 	return nil
 }
 
-func (h *handler) write(p, n string) error {
-	dir := filepath.Dir(p)
-	err := h.ctx.FileSystem().MkdirAll(dir, 0o755)
-	if err != nil {
-		return fmt.Errorf("cannot create dir %s", dir)
+func (h *action) write(p, n string) error {
+	if p == "" || p == "-" {
+		out.Outln(h.ctx, n)
+		return nil
+	} else {
+		dir := filepath.Dir(p)
+		err := h.ctx.FileSystem().MkdirAll(dir, 0o755)
+		if err != nil {
+			return fmt.Errorf("cannot create dir %s", dir)
+		}
+		return vfs.WriteFile(h.ctx.FileSystem(), p, []byte(n), 0o644)
 	}
-	return vfs.WriteFile(h.ctx.FileSystem(), p, []byte(n), 0o644)
 }
 
 /////////
 
-func newHandler(opts *output.Options) *handler {
-	h := &handler{
+func newAction(opts *output.Options) *action {
+	h := &action{
 		ctx:  opts.Context,
 		opts: hashoption.From(opts),
 		mode: From(opts),
@@ -230,11 +239,11 @@ func newHandler(opts *output.Options) *handler {
 	return h
 }
 
-func (h *handler) manifester(e interface{}) interface{} {
+func (h *action) manifester(e interface{}) interface{} {
 	return h._manifester(e)
 }
 
-func (h *handler) _manifester(e interface{}) *Manifest {
+func (h *action) _manifester(e interface{}) *Manifest {
 	p := e.(*Object)
 
 	tag := "-"
@@ -255,7 +264,7 @@ func (h *handler) _manifester(e interface{}) *Manifest {
 
 	if p.Descriptor == nil {
 		if p.Error == nil {
-			m.Error = fmt.Sprintf("<unknown component version>")
+			m.Error = "<unknown component version>"
 		} else {
 			m.Error = p.Error.Error()
 		}
@@ -271,7 +280,7 @@ func (h *handler) _manifester(e interface{}) *Manifest {
 	return m
 }
 
-func (h *handler) digester(e interface{}) interface{} {
+func (h *action) digester(e interface{}) interface{} {
 	p := e.(*comphdlr.Object)
 	o := &Object{
 		Spec:    p.Spec,
@@ -286,7 +295,7 @@ func (h *handler) digester(e interface{}) interface{} {
 	return o
 }
 
-func (h *handler) mapGetRegularOutput(e interface{}) interface{} {
+func (h *action) mapGetRegularOutput(e interface{}) interface{} {
 	p := e.(*Object)
 
 	tag := "-"
@@ -306,7 +315,7 @@ func (h *handler) mapGetRegularOutput(e interface{}) interface{} {
 	return []string{p.Spec.Component, tag, hash}
 }
 
-func (h *handler) mapGetWideOutput(e interface{}) interface{} {
+func (h *action) mapGetWideOutput(e interface{}) interface{} {
 	p := e.(*Object)
 
 	tag := "-"

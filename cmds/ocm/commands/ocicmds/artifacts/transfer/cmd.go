@@ -1,29 +1,25 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package transfer
 
 import (
 	"fmt"
 	"path"
 
+	"github.com/mandelsoft/goutils/errors"
 	"github.com/opencontainers/go-digest"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocicmds/common"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocicmds/common/handlers/artifacthdlr"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocicmds/common/options/repooption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocicmds/names"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/oci"
-	"github.com/open-component-model/ocm/pkg/contexts/oci/repositories/ctf"
-	"github.com/open-component-model/ocm/pkg/contexts/oci/transfer"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/out"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/oci"
+	"ocm.software/ocm/api/oci/extensions/repositories/ctf"
+	"ocm.software/ocm/api/oci/tools/transfer"
+	"ocm.software/ocm/api/utils/out"
+	"ocm.software/ocm/cmds/ocm/commands/ocicmds/common"
+	"ocm.software/ocm/cmds/ocm/commands/ocicmds/common/handlers/artifacthdlr"
+	"ocm.software/ocm/cmds/ocm/commands/ocicmds/common/options/repooption"
+	"ocm.software/ocm/cmds/ocm/commands/ocicmds/names"
+	"ocm.software/ocm/cmds/ocm/commands/verbs"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 var (
@@ -66,13 +62,29 @@ Sources may be specified as
 - dedicated artifacts with repository and version or tag
 - repository (without version), which is resolved to all available tags
 - registry, if the specified registry implementation supports a namespace/repository lister,
-  which is not the case for registries conforming to the OCI distribution specification.`,
+  which is not the case for registries conforming to the OCI distribution specification.
+
+Note that there is an indirection of "ocm oci artifact" to "ocm transfer artifact" out of convenience.`,
 		Example: `
-$ ocm oci artifact transfer ghcr.io/mandelsoft/kubelink:v1.0.0 gcr.io
-$ ocm oci artifact transfer ghcr.io/mandelsoft/kubelink gcr.io
-$ ocm oci artifact transfer ghcr.io/mandelsoft/kubelink gcr.io/my-project
-$ ocm oci artifact transfer /tmp/ctf gcr.io/my-project
+# Simple:
+$ ocm transfer artifact ghcr.io/open-component-model/ocm/ocm.software/ocmcli/ocmcli-image:0.17.0 ghcr.io/MY_USER/ocmcli:0.17.0
+$ ocm transfer artifact ghcr.io/open-component-model/ocm/ocm.software/ocmcli/ocmcli-image ghcr.io/MY_USER/ocmcli
+$ ocm transfer artifact ghcr.io/open-component-model/ocm/ocm.software/ocmcli/ocmcli-image gcr.io
+$ ocm transfer artifact transfer /tmp/ctf ghcr.io/MY_USER/ocmcli
+
+# Equivalent to ocm transfer artifact:
+$ ocm oci artifact transfer
+
+# Complex:
+# Transfer an artifact from a CTF into an OCI Repository:
+# 1. Get the link to all artifacts in the CTF with "ocm get artifact $PATH_TO_CTF",
+$ ocm get artifact $PATH_TO_CTF
+REGISTRY                                                               REPOSITORY
+CommonTransportFormat::$PATH_TO_CTF/ component-descriptors/ocm.software/ocmcli
+# 2. Then use any combination to form an artifact reference:
+$ ocm transfer artifact  CommonTransportFormat::$PATH_TO_CTF//component-descriptors/ocm.software/ocmcli ghcr.io/open-component-model/ocm:latest
 `,
+		Annotations: map[string]string{"ExampleCodeStyle": "bash"},
 	}
 }
 
@@ -154,12 +166,12 @@ func NewAction(ctx clictx.Context, session oci.Session, target string, transferR
 func (a *action) Add(e interface{}) error {
 	src, ok := e.(*artifacthdlr.Object)
 	if !ok {
-		return fmt.Errorf("failed type assertion for type %T to artifacthtlr.Object", e)
+		return fmt.Errorf("failed type assertion for type %T to artifacthdlr.Object", e)
 	}
 
 	ns := src.Namespace.GetNamespace()
 	if ns == "" && a.Ref.IsRegistry() {
-		return errors.Newf("target repository equired for repository-less artifact")
+		return errors.Newf("target repository required for repository-less artifact")
 	}
 	versions, ok := a.repositories[ns]
 	if !ok {

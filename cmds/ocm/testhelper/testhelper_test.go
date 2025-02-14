@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package testhelper
 
 import (
@@ -12,7 +8,6 @@ import (
 )
 
 var _ = Describe("Test Environment", func() {
-
 	It("loads test environment", func() {
 		h := NewTestEnv(TestData())
 		defer h.Cleanup()

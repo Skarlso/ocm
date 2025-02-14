@@ -1,31 +1,32 @@
-## ocm transfer componentarchive &mdash; Transfer Component Archive To Some Component Repository
+## ocm transfer componentarchive &mdash; (DEPRECATED) - Please Use Commontransportarchive Instead
 
 ### Synopsis
 
-```
-ocm transfer componentarchive [<options>]  <source> <target>
+```bash
+ocm transfer componentarchive [<options>] <source> <target>
 ```
 
-##### Aliases
+#### Aliases
 
-```
+```text
 componentarchive, comparch, ca
 ```
 
 ### Options
 
-```
+```text
   -L, --copy-local-resources   transfer referenced local resources by-value
   -V, --copy-resources         transfer referenced resources by-value
       --copy-sources           transfer referenced sources by-value
+      --enforce                enforce transport as if target version were not present
   -h, --help                   help for componentarchive
       --lookup stringArray     repository name or spec for closure lookup fallback
+      --no-update              don't touch existing versions in target
   -f, --overwrite              overwrite existing component versions
   -t, --type string            archive format (directory, tar, tgz) (default "directory")
 ```
 
 ### Description
-
 
 Transfer a component archive to some component repository. This might
 be a CTF Archive or a regular repository.
@@ -37,7 +38,8 @@ either via inline argument or command configuration file and name.
 
 
 The <code>--type</code> option accepts a file format for the
-target archive to use. The following formats are supported:
+target archive to use. It is only evaluated if the target
+archive does not exist yet. The following formats are supported:
 - directory
 - tar
 - tgz
@@ -55,28 +57,39 @@ this option must always be specified to be able to follow component
 references.
 
 
-It the option <code>--overwrite</code> is given, component version in the
-target repository will be overwritten, if they already exist.
+With the option <code>--no-update</code> existing versions in the target
+repository will not be touched at all. An additional specification of the
+option <code>--overwrite</code> is ignored. By default, updates of
+volatile (non-signature-relevant) information is enabled, but the
+modification of non-volatile data is prohibited unless the overwrite
+option is given.
 
 
-It the option <code>--copy-resources</code> is given, all referential 
+If the option <code>--overwrite</code> is given, component versions in the
+target repository will be overwritten, if they already exist, but with different digest.
+If the option <code>--enforce</code> is given, component versions in the
+target repository will be transported as if they were not present on the target side,
+regardless of their state (this is independent on their actual state, even identical
+versions are re-transported).
+
+
+If the option <code>--copy-resources</code> is given, all referential
 resources will potentially be localized, mapped to component version local
-resources in the target repository. It the option <code>--copy-local-resources</code> 
+resources in the target repository. If the option <code>--copy-local-resources</code>
 is given, instead, only resources with the relation <code>local</code> will be
 transferred. This behaviour can be further influenced by specifying a transfer
 script with the <code>script</code> option family.
 
 
-It the option <code>--copy-sources</code> is given, all referential 
+If the option <code>--copy-sources</code> is given, all referential
 sources will potentially be localized, mapped to component version local
 resources in the target repository.
 This behaviour can be further influenced by specifying a transfer script
 with the <code>script</code> option family.
 
-
 ### SEE ALSO
 
-##### Parents
+#### Parents
 
 * [ocm transfer](ocm_transfer.md)	 &mdash; Transfer artifacts or components
 * [ocm](ocm.md)	 &mdash; Open Component Model command line client

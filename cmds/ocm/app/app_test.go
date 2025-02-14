@@ -1,28 +1,25 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package app_test
 
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"strings"
 
+	. "github.com/mandelsoft/goutils/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/open-component-model/ocm/cmds/ocm/testhelper"
-	. "github.com/open-component-model/ocm/pkg/testutils"
+	. "ocm.software/ocm/cmds/ocm/testhelper"
 
 	"github.com/mandelsoft/logging"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
 	"github.com/tonglil/buflogr"
 
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/attrs/mapocirepoattr"
-	ocmlog "github.com/open-component-model/ocm/pkg/logging"
-	"github.com/open-component-model/ocm/pkg/logging/testhelper"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm/extensions/attrs/mapocirepoattr"
+	ocmlog "ocm.software/ocm/api/utils/logging"
+	"ocm.software/ocm/api/utils/logging/testhelper"
 )
 
 var realm = logging.NewRealm("test")
@@ -67,12 +64,15 @@ var _ = Describe("Test Environment", func() {
 		var m map[string]interface{}
 		Expect(json.Unmarshal(buf.Bytes(), &m)).To(Succeed())
 	})
+
 	It("do logging", func() {
 		buf := bytes.NewBuffer(nil)
-		Expect(env.CatchOutput(buf).ExecuteModified(addTestCommands, "logtest")).To(Succeed())
+		Expect(env.CatchOutput(buf).ExecuteModified(addTestCommands, "-X", "plugindir=xxx", "logtest")).To(Succeed())
 		Expect(log.String()).To(StringEqualTrimmedWithContext(`
-ERROR <nil> ocm/test error
-ERROR <nil> ocm/test ctxerror
+V[2] warn realm ocm realm test
+ERROR <nil> error realm ocm realm test
+V[2] ctxwarn realm ocm realm test
+ERROR <nil> ctxerror realm ocm realm test
 `))
 	})
 
@@ -80,29 +80,30 @@ ERROR <nil> ocm/test ctxerror
 		buf := bytes.NewBuffer(nil)
 		Expect(env.CatchOutput(buf).ExecuteModified(addTestCommands, "-X", "plugindir=xxx", "-l", "Debug", "logtest")).To(Succeed())
 		Expect(log.String()).To(StringEqualTrimmedWithContext(`
-V[4] ocm/test debug
-V[3] ocm/test info
-V[2] ocm/test warn
-ERROR <nil> ocm/test error
-V[4] ocm/test ctxdebug
-V[3] ocm/test ctxinfo
-V[2] ocm/test ctxwarn
-ERROR <nil> ocm/test ctxerror
+V[4] debug realm ocm realm test
+V[3] info realm ocm realm test
+V[2] warn realm ocm realm test
+ERROR <nil> error realm ocm realm test
+V[4] ctxdebug realm ocm realm test
+V[3] ctxinfo realm ocm realm test
+V[2] ctxwarn realm ocm realm test
+ERROR <nil> ctxerror realm ocm realm test
 `))
+		ocmlog.Context().SetDefaultLevel(logging.WarnLevel)
 	})
 
 	It("sets logging by config", func() {
 		buf := bytes.NewBuffer(nil)
 		Expect(env.CatchOutput(buf).ExecuteModified(addTestCommands, "--logconfig", "@testdata/logcfg.yaml", "logtest")).To(Succeed())
 		Expect(log.String()).To(StringEqualTrimmedWithContext(`
-V[4] ocm/test debug
-V[3] ocm/test info
-V[2] ocm/test warn
-ERROR <nil> ocm/test error
-V[4] ocm/test ctxdebug
-V[3] ocm/test ctxinfo
-V[2] ocm/test ctxwarn
-ERROR <nil> ocm/test ctxerror
+V[4] debug realm ocm realm test
+V[3] info realm ocm realm test
+V[2] warn realm ocm realm test
+ERROR <nil> error realm ocm realm test
+V[4] ctxdebug realm ocm realm test
+V[3] ctxinfo realm ocm realm test
+V[2] ctxwarn realm ocm realm test
+ERROR <nil> ctxerror realm ocm realm test
 `))
 	})
 
@@ -116,14 +117,14 @@ rules:
       conditions:
         - realm: test`, "logtest")).To(Succeed())
 		Expect(log.String()).To(StringEqualTrimmedWithContext(`
-V[4] ocm/test debug
-V[3] ocm/test info
-V[2] ocm/test warn
-ERROR <nil> ocm/test error
-V[4] ocm/test ctxdebug
-V[3] ocm/test ctxinfo
-V[2] ocm/test ctxwarn
-ERROR <nil> ocm/test ctxerror
+V[4] debug realm ocm realm test
+V[3] info realm ocm realm test
+V[2] warn realm ocm realm test
+ERROR <nil> error realm ocm realm test
+V[4] ctxdebug realm ocm realm test
+V[3] ctxinfo realm ocm realm test
+V[2] ctxwarn realm ocm realm test
+ERROR <nil> ctxerror realm ocm realm test
 `))
 	})
 
@@ -134,7 +135,16 @@ ERROR <nil> ocm/test ctxerror
 		data, err := vfs.ReadFile(env.FileSystem(), "logfile")
 		Expect(err).To(Succeed())
 
-		Expect(len(string(data))).To(Equal(191))
+		fmt.Printf("%s\n", string(data))
+		// 2024-06-16T13:59:34+02:00 warning [test] warn
+		// 2024-06-16T13:59:34+02:00 error   [test] error
+		// 2024-06-16T13:59:34+02:00 warning [test] ctxwarn
+		// 2024-06-16T13:59:34+02:00 error   [test] ctxerror
+		Expect(string(data)).To(MatchRegexp(`.* warning \[test\] warn
+.* error   \[test\] error
+.* warning \[test\] ctxwarn
+.* error   \[test\] ctxerror
+`))
 	})
 
 	It("sets attr from file", func() {
@@ -145,5 +155,4 @@ ERROR <nil> ocm/test ctxerror
 		attr = mapocirepoattr.Get(env.Context)
 		Expect(attr.Mode).To(Equal(mapocirepoattr.ShortHashMode))
 	})
-
 })

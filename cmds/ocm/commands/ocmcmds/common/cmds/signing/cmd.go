@@ -1,30 +1,26 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package signing
 
 import (
 	"fmt"
 
+	"github.com/mandelsoft/goutils/errors"
 	"github.com/spf13/cobra"
 
-	ocmcommon "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/handlers/comphdlr"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/repooption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/signoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/versionconstraintsoption"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/output"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/attrs/signingattr"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc"
-	metav1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/signing"
-	"github.com/open-component-model/ocm/pkg/errors"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm"
+	"ocm.software/ocm/api/ocm/compdesc"
+	metav1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	"ocm.software/ocm/api/ocm/resolvers"
+	"ocm.software/ocm/api/ocm/tools/signing"
+	common "ocm.software/ocm/api/utils/misc"
+	ocmcommon "ocm.software/ocm/cmds/ocm/commands/ocmcmds/common"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/handlers/comphdlr"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/repooption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/signoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/versionconstraintsoption"
+	"ocm.software/ocm/cmds/ocm/common/output"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 type SignatureCommand struct {
@@ -36,22 +32,24 @@ type SignatureCommand struct {
 type spec struct {
 	op      string
 	sign    bool
+	desc    string
 	example string
 	terms   []string
 }
 
-func newOperation(op string, sign bool, terms []string, example string) *spec {
+func newOperation(op string, sign bool, terms []string, desc string, example string) *spec {
 	return &spec{
 		op:      op,
 		sign:    sign,
+		desc:    desc,
 		example: example,
 		terms:   terms,
 	}
 }
 
 // NewCommand creates a new ctf command.
-func NewCommand(ctx clictx.Context, op string, sign bool, terms []string, example string, names ...string) *cobra.Command {
-	spec := newOperation(op, sign, terms, example)
+func NewCommand(ctx clictx.Context, op string, sign bool, terms []string, desc string, example string, names ...string) *cobra.Command {
+	spec := newOperation(op, sign, terms, desc, example)
 	return utils.SetupCommand(&SignatureCommand{spec: spec, BaseCommand: utils.NewBaseCommand(ctx, versionconstraintsoption.New(), repooption.New(), signoption.New(sign), lookupoption.New())}, names...)
 }
 
@@ -61,8 +59,9 @@ func (o *SignatureCommand) ForName(name string) *cobra.Command {
 		Short: o.spec.op + " component version",
 		Long: `
 ` + o.spec.op + ` specified component versions.
-`,
-		Example: o.spec.example,
+` + o.spec.desc,
+		Example:     o.spec.example,
+		Annotations: map[string]string{"ExampleCodeStyle": "bash"},
 	}
 }
 
@@ -74,9 +73,11 @@ func (o *SignatureCommand) Complete(args []string) error {
 	return nil
 }
 
-func (o *SignatureCommand) Run() error {
+func (o *SignatureCommand) Run() (rerr error) {
 	session := ocm.NewSession(nil)
-	defer session.Close()
+	defer errors.PropagateError(&rerr, func() error {
+		return session.Close()
+	})
 
 	err := o.ProcessOnOptions(ocmcommon.CompleteOptionsWithSession(o, session))
 	if err != nil {
@@ -87,11 +88,23 @@ func (o *SignatureCommand) Run() error {
 	lookup := lookupoption.From(o)
 	handler := comphdlr.NewTypeHandler(o.Context.OCM(), session, repo, comphdlr.OptionsFor(o))
 	sopts := signing.NewOptions(sign, signing.Resolver(repo, lookup.Resolver))
-	err = sopts.Complete(signingattr.Get(o.Context.OCMContext()))
+	if !o.spec.sign {
+		if len(sopts.SignatureNames) > 0 || sopts.Issuer != nil || sopts.Keyless {
+			sopts.VerifySignature = true
+		}
+	}
+	err = sopts.Complete(o.Context.OCMContext())
 	if err != nil {
 		return err
 	}
-	return utils.HandleOutput(NewAction(o.spec.terms, o.Context.OCMContext(), common.NewPrinter(o.Context.StdOut()), sopts), handler, utils.StringElemSpecs(o.Refs...)...)
+	err = utils.HandleOutput(NewAction(o.spec.terms, o.Context.OCMContext(), common.NewPrinter(o.Context.StdOut()), sopts), handler, utils.StringElemSpecs(o.Refs...)...)
+	if err != nil {
+		return err
+	}
+	if sopts.VerifiedStore != nil {
+		return errors.Wrapf(sopts.VerifiedStore.Save(), "cannot save verified store %q", signoption.From(o).Verified.File)
+	}
+	return nil
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -119,14 +132,15 @@ func NewAction(desc []string, ctx ocm.Context, p common.Printer, sopts *signing.
 		state:        signing.NewWalkingState(ctx.LoggingContext().WithContext(signing.REALM)),
 		baseresolver: sopts.Resolver,
 		sopts:        sopts,
-		errlist:      errors.ErrListf(desc[1]),
+		errlist:      errors.ErrList(desc[1]),
 	}
 }
 
 func (a *action) Digest(o *comphdlr.Object) (*metav1.DigestSpec, *compdesc.ComponentDescriptor, error) {
 	sopts := *a.sopts
-	sopts.Resolver = ocm.NewCompoundResolver(o.Repository, a.sopts.Resolver)
-	d, err := signing.Apply(a.printer, &a.state, o.ComponentVersion, &sopts, true)
+	sopts.Resolver = resolvers.NewCompoundResolver(o.Repository, a.sopts.Resolver)
+
+	d, err := signing.Apply(a.printer, &a.state, o.ComponentVersion, &sopts)
 	var cd *compdesc.ComponentDescriptor
 	nv := common.VersionedElementKey(o.ComponentVersion)
 	vi := a.state.Get(nv)

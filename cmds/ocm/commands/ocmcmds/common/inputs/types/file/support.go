@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package file
 
 import (
@@ -10,13 +6,13 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/mandelsoft/goutils/errors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs/cpi"
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/mime"
+	"ocm.software/ocm/api/utils/blobaccess"
+	"ocm.software/ocm/api/utils/mime"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs/cpi"
 )
 
 type FileProcessSpec struct {
@@ -35,7 +31,7 @@ func (s *FileProcessSpec) Validate(fldPath *field.Path, ctx inputs.Context, inpu
 	return allErrs
 }
 
-func (s *FileProcessSpec) GetBlob(ctx inputs.Context, info inputs.InputResourceInfo) (accessio.TemporaryBlobAccess, string, error) {
+func (s *FileProcessSpec) GetBlob(ctx inputs.Context, info inputs.InputResourceInfo) (blobaccess.BlobAccess, string, error) {
 	fs := ctx.FileSystem()
 	inputInfo, inputPath, err := inputs.FileInfo(ctx, s.Path, info.InputFilePath)
 	if err != nil {
@@ -75,12 +71,12 @@ func (s *FileProcessSpec) GetBlob(ctx inputs.Context, info inputs.InputResourceI
 		}
 		if data == nil {
 			inputBlob.Close()
-			return accessio.TemporaryBlobAccessFor(accessio.BlobAccessForFile(s.MediaType, inputPath, fs)), "", nil
+			return blobaccess.ForFile(s.MediaType, inputPath, fs), "", nil
 		}
-		return accessio.TemporaryBlobAccessFor(accessio.BlobAccessForData(s.MediaType, data)), "", nil
+		return blobaccess.ForData(s.MediaType, data), "", nil
 	}
 
-	temp, err := accessio.NewTempFile(fs, "", "compressed*.gzip")
+	temp, err := blobaccess.NewTempFile("", "compressed*.gzip", fs)
 	if err != nil {
 		return nil, "", err
 	}
@@ -107,7 +103,7 @@ is set to <code>true</code>.
 This blob type specification supports the following fields: 
 - **<code>path</code>** *string*
 
-  This REQUIRED property describes the file path to the helm chart relative to the
+  This REQUIRED property describes the path to the file relative to the
   resource file location.
 ` + cpi.ProcessSpecUsage
 }

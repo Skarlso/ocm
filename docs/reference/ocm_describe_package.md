@@ -2,19 +2,19 @@
 
 ### Synopsis
 
-```
+```bash
 ocm describe package [<options>] {<component-reference>} {<resource id field>}
 ```
 
-##### Aliases
+#### Aliases
 
-```
+```text
 package, pkg, componentversion, cv, component, comp, c
 ```
 
 ### Options
 
-```
+```text
   -h, --help                 help for package
       --lookup stringArray   repository name or spec for closure lookup fallback
       --repo string          repository name or spec
@@ -22,12 +22,11 @@ package, pkg, componentversion, cv, component, comp, c
 
 ### Description
 
-
 Describe a TOI package provided by a resource of an OCM component version.
 
 The package resource must have the type <code>toiPackage</code>.
 This is a simple YAML file resource describing the bootstrapping of a dedicated kind
-of software. See also the topic [ocm toi toi-bootstrapping](ocm_toi_toi-bootstrapping.md).
+of software. See also the topic [ocm toi-bootstrapping](ocm_toi-bootstrapping.md).
 
 The first matching resource of this type is selected. Optionally a set of
 identity attribute can be specified used to refine the match. This can be the
@@ -41,7 +40,7 @@ relative to the specified repository using the syntax
     <pre>&lt;component>[:&lt;version>]</pre>
 </center>
 
-If no <code>--repo</code> option is specified the given names are interpreted 
+If no <code>--repo</code> option is specified the given names are interpreted
 as located OCM component version references:
 
 <center>
@@ -64,17 +63,12 @@ The <code>--repo</code> option takes an OCM repository specification:
 For the *Common Transport Format* the types <code>directory</code>,
 <code>tar</code> or <code>tgz</code> is possible.
 
-Using the JSON variant any repository types supported by the 
+Using the JSON variant any repository types supported by the
 linked library can be used:
 
-Dedicated OCM repository types:
-  - <code>ComponentArchive</code>: v1
-
 OCI Repository types (using standard component repository to OCI mapping):
-  - <code>ArtifactSet</code>: v1
+
   - <code>CommonTransportFormat</code>: v1
-  - <code>DockerDaemon</code>: v1
-  - <code>Empty</code>: v1
   - <code>OCIRegistry</code>: v1
   - <code>oci</code>: v1
   - <code>ociRegistry</code>
@@ -89,28 +83,22 @@ it only contains a single component version. Therefore, in this scenario
 this option must always be specified to be able to follow component
 references.
 
-
 ### Examples
 
-```
+```bash
 $ ocm toi describe package ghcr.io/mandelsoft/ocm//ocmdemoinstaller:0.0.1-dev
 ```
 
 ### SEE ALSO
 
-##### Parents
+#### Parents
 
 * [ocm describe](ocm_describe.md)	 &mdash; Describe various elements by using appropriate sub commands.
 * [ocm](ocm.md)	 &mdash; Open Component Model command line client
 
 
 
-##### Additional Help Topics
-
-* [ocm describe package <b>toi-bootstrapping</b>](ocm_describe_package_toi-bootstrapping.md)	 &mdash; Tiny OCM Installer based on component versions
-
-
 ##### Additional Links
 
-* [<b>ocm toi toi-bootstrapping</b>](ocm_toi_toi-bootstrapping.md)
+* [<b>ocm toi-bootstrapping</b>](ocm_toi-bootstrapping.md)	 &mdash; Tiny OCM Installer based on component versions
 

@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package transfer_test
 
 import (
@@ -9,34 +5,36 @@ import (
 	"encoding/json"
 	"fmt"
 
+	. "github.com/mandelsoft/goutils/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/open-component-model/ocm/cmds/ocm/testhelper"
-	. "github.com/open-component-model/ocm/pkg/contexts/oci/testhelper"
-	. "github.com/open-component-model/ocm/pkg/testutils"
+	. "ocm.software/ocm/api/oci/testhelper"
+	. "ocm.software/ocm/cmds/ocm/testhelper"
 
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	"github.com/open-component-model/ocm/pkg/common/accessobj"
-	"github.com/open-component-model/ocm/pkg/contexts/oci"
-	"github.com/open-component-model/ocm/pkg/contexts/oci/grammar"
-	ctfoci "github.com/open-component-model/ocm/pkg/contexts/oci/repositories/ctf"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/accessmethods/ociartifact"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/attrs/ociuploadattr"
-	v1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/repositories/comparch"
-	ctfocm "github.com/open-component-model/ocm/pkg/contexts/ocm/repositories/ctf"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/resourcetypes"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/transfer"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/transfer/transferhandler/standard"
-	"github.com/open-component-model/ocm/pkg/mime"
+	"ocm.software/ocm/api/oci"
+	ctfoci "ocm.software/ocm/api/oci/extensions/repositories/ctf"
+	"ocm.software/ocm/api/oci/grammar"
+	v1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	"ocm.software/ocm/api/ocm/extensions/accessmethods/ociartifact"
+	resourcetypes "ocm.software/ocm/api/ocm/extensions/artifacttypes"
+	"ocm.software/ocm/api/ocm/extensions/attrs/ociuploadattr"
+	"ocm.software/ocm/api/ocm/extensions/repositories/comparch"
+	ctfocm "ocm.software/ocm/api/ocm/extensions/repositories/ctf"
+	"ocm.software/ocm/api/ocm/tools/transfer"
+	"ocm.software/ocm/api/ocm/tools/transfer/transferhandler/standard"
+	"ocm.software/ocm/api/utils/accessio"
+	"ocm.software/ocm/api/utils/accessobj"
+	"ocm.software/ocm/api/utils/mime"
 )
 
-const COMP = "github.com/compa"
-const VERS = "1.0.0"
-const CA = "ca"
-const CTF = "ctf"
-const COPY = "./ctf.copy"
-const TARGET = "/tmp/target"
+const (
+	COMP   = "github.com/compa"
+	VERS   = "1.0.0"
+	CA     = "ca"
+	CTF    = "ctf"
+	COPY   = "./ctf.copy"
+	TARGET = "/tmp/target"
+)
 
 const OCISRC = "/tmp/source"
 
@@ -78,7 +76,7 @@ var _ = Describe("upload", func() {
 		oca := accessio.OnceCloser(ca)
 		defer Close(oca)
 
-		ctf := Must(ctfocm.Create(env.OCMContext(), accessobj.ACC_CREATE, CTF, 0700, env))
+		ctf := Must(ctfocm.Create(env.OCMContext(), accessobj.ACC_CREATE, CTF, 0o700, env))
 		octf := accessio.OnceCloser(ctf)
 		defer Close(octf)
 
@@ -105,13 +103,13 @@ var _ = Describe("upload", func() {
 		}
 		Expect(buf.String()).To(StringEqualTrimmedWithContext(`
 transferring version "github.com/compa:1.0.0"...
-...resource 0(ocm/value:v2.0)...
+...resource 0 value[ociImage](ocm/value:v2.0)...
 ...adding component version...
 1 versions transferred
 
 `))
 
-		copy := Must(ctfocm.Open(ctx, accessobj.ACC_READONLY, COPY, 0700, env))
+		copy := Must(ctfocm.Open(ctx, accessobj.ACC_READONLY, COPY, 0o700, env))
 		defer Close(copy)
 
 		// check type
@@ -122,7 +120,7 @@ transferring version "github.com/compa:1.0.0"...
 		Expect(acc.GetKind()).To(Equal(ociartifact.Type))
 		val := Must(ctx.AccessSpecForSpec(acc))
 		// TODO: the result is invalid for ctf: better handling for ctf refs
-		Expect(val.(*ociartifact.AccessSpec).ImageReference).To(Equal("/tmp/target//copy/ocm/value:v2.0"))
+		Expect(val.(*ociartifact.AccessSpec).ImageReference).To(Equal("/tmp/target//copy/ocm/value:v2.0@sha256:" + D_OCIMANIFEST1))
 
 		target, err := ctfoci.Open(ctx.OCIContext(), accessobj.ACC_READONLY, TARGET, 0, env)
 		Expect(err).To(Succeed())

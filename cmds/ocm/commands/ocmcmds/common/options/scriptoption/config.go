@@ -1,18 +1,14 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package scriptoption
 
 import (
 	"encoding/json"
 
+	"github.com/mandelsoft/goutils/errors"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	cfgcpi "github.com/open-component-model/ocm/pkg/contexts/config/cpi"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/runtime"
+	cfgcpi "ocm.software/ocm/api/config/cpi"
+	"ocm.software/ocm/api/utils"
+	"ocm.software/ocm/api/utils/runtime"
 )
 
 const (
@@ -82,8 +78,7 @@ func (a *Config) ApplyTo(ctx cfgcpi.Context, target interface{}) error {
 			if spec.Path == "" {
 				return errors.Newf("script or path must be set for entry %q", t.Script)
 			}
-			fs := accessio.FileSystem(spec.FileSystem, t.FileSystem)
-			data, err := vfs.ReadFile(fs, spec.Path)
+			data, err := utils.ReadFile(spec.Path, utils.FileSystem(spec.FileSystem, t.FileSystem))
 			if err != nil {
 				return errors.Wrapf(err, "script file %q", spec.Path)
 			}

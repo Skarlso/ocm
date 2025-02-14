@@ -1,0 +1,162 @@
+# This publish step takes care of some (but not all ;) ) of the package registries
+# that we think might be useful for people to consume.
+#
+# Other package registries might also be pushed in the goreleaser step (see release.yaml) and are configured
+# within .github/config/goreleaser.yaml.
+#
+# TODO: Unify
+name: Publish Release to other package registries than Github
+
+on:
+  repository_dispatch:
+    types: [publish-ocm-cli]
+
+jobs:
+  push-to-brew-tap:
+    name: Update Homebrew Tap
+    if: github.event.client_payload.push-to-brew-tap && github.event.client_payload.version != ''
+    runs-on: ubuntu-latest
+    env:
+      REPO: open-component-model/homebrew-tap
+    steps:
+    - name: Ensure proper version
+      run: echo "RELEASE_VERSION=$(echo ${{ github.event.client_payload.version }} | tr -d ['v'])" >> $GITHUB_ENV
+    - name: Generate token
+      id: generate_token
+      uses: tibdex/github-app-token@v2
+      with:
+        app_id: ${{ secrets.OCMBOT_APP_ID }}
+        private_key: ${{ secrets.OCMBOT_PRIV_KEY }}
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        path: tap
+        repository: ${{ env.REPO }}
+        token: ${{ steps.generate_token.outputs.token }}
+    - name: Get Update Script
+      uses: actions/checkout@v4
+      with:
+        path: scripts
+        sparse-checkout: |
+          hack/brew
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: ${{ github.workspace }}/scripts/hack/brew/go.mod
+        cache: false
+    - name: Build Script
+      working-directory: ${{ github.workspace }}/scripts/hack/brew
+      run: go build -o script
+    - name: Update Homebrew Tap
+      run: |
+        formula=$(${{ github.workspace }}/scripts/hack/brew/script \
+            --version ${{ env.RELEASE_VERSION }} \
+            --template ${{ github.workspace }}/scripts/hack/brew/internal/ocm_formula_template.rb.tpl \
+            --outputDirectory ${{ github.workspace }}/tap/Formula)
+        mkdir -p ${{ github.workspace }}/tap/Aliases
+        cd ${{ github.workspace }}/tap/Aliases
+        ln -sf ../Formula/$(basename $formula) ./ocm
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v7
+      with:
+        path: tap
+        token: ${{ steps.generate_token.outputs.token }}
+        title: "chore: update OCM CLI to v${{ env.RELEASE_VERSION }}"
+        commit-message: "[github-actions] update OCM CLI to v${{ env.RELEASE_VERSION }}"
+        branch: chore/update-ocm-cli/${{ env.RELEASE_VERSION }}
+        delete-branch: true
+        sign-commits: true
+        add-paths: |
+          Formula/*
+          Aliases/*
+        body: |
+          Update OCM CLI to v${{ env.RELEASE_VERSION }}.
+
+  push-to-aur:
+    name: Update Arch Linux User Repository
+    if: github.event.client_payload.push-to-aur && github.event.client_payload.version != ''
+    runs-on: ubuntu-latest
+    steps:
+    - name: Ensure proper version
+      run: echo "RELEASE_VERSION=$(echo ${{ github.event.client_payload.version }} | tr -d ['v'])" >> $GITHUB_ENV
+    - name: Install SSH key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        name: aur
+        key: ${{ secrets.ARCHLINUX_SSH_PRIVATE_KEY }}
+        known_hosts: ${{ secrets.ARCHLINUX_KNOWN_HOSTS }}
+        config: ${{ secrets.ARCHLINUX_SSH_CONFIG}}
+    - name: Git operations with SSH
+      run: |
+        git clone ssh://aur@aur.archlinux.org/ocm-cli.git
+        cd ocm-cli
+        git config user.name "ocm.software"
+        git config user.email "ocm@sap.com"
+        ./upgrade ${{ env.RELEASE_VERSION }}
+        git add PKGBUILD .SRCINFO
+        git commit -m "Release ${{ env.RELEASE_VERSION }}"
+        git push origin @:refs/heads/master
+
+  push-to-chocolatey:
+    name: Update Chocolatey
+    if: github.event.client_payload.push-to-chocolatey && github.event.client_payload.version != ''
+    runs-on: windows-latest
+    steps:
+    - name: Ensure proper version
+      run: |
+        $version = "${{ github.event.client_payload.version }}" -replace 'v'
+        echo "RELEASE_VERSION=$version" | Out-File $env:GITHUB_ENV
+    - name: Generate token
+      id: generate_token
+      uses: tibdex/github-app-token@v2
+      with:
+        app_id: ${{ secrets.OCMBOT_APP_ID }}
+        private_key: ${{ secrets.OCMBOT_PRIV_KEY }}
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        token: ${{ steps.generate_token.outputs.token }}
+    - name: Update Chocolatey package
+      run: |
+        .\hack\chocolatey\update.ps1
+        choco push ocm-cli.${{ env.RELEASE_VERSION }}.nupkg --source "'https://push.chocolatey.org/'" --api-key="${{ secrets.CHOCO_API_KEY }}"
+
+  push-to-winget:
+    name: Update Winget
+    if: github.event.client_payload.push-to-winget && github.event.client_payload.version != ''
+    runs-on: windows-latest
+    steps:
+    - name: Ensure proper version
+      run: |
+        $version = "${{ github.event.client_payload.version }}" -replace 'v'
+        echo "RELEASE_VERSION=$version" | Out-File $env:GITHUB_ENV
+    - name: Install wingetcreate
+      run: iwr https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+    - name: Update Winget package
+      run: |
+        .\wingetcreate.exe update --submit --token ${{ secrets.OCM_CI_ROBOT_0_REPO }} --urls `
+          https://github.com/open-component-model/ocm/releases/download/v${{ env.RELEASE_VERSION }}/ocm-${{ env.RELEASE_VERSION }}-windows-amd64.zip `
+          https://github.com/open-component-model/ocm/releases/download/v${{ env.RELEASE_VERSION }}/ocm-${{ env.RELEASE_VERSION }}-windows-arm64.zip `
+          --version ${{ env.RELEASE_VERSION }} `
+          Open-Component-Model.ocm-cli
+
+  push-to-website:
+    name: Update OCM Website
+    runs-on: ubuntu-latest
+    if: github.event.client_payload.push-to-website && github.event.client_payload.version != ''
+    steps:
+    - name: Ensure proper version
+      run: echo "RELEASE_VERSION=$(echo ${{ github.event.client_payload.version }})" >> $GITHUB_ENV
+    - name: Generate token
+      id: generate_token
+      uses: tibdex/github-app-token@v2
+      with:
+        app_id: ${{ secrets.OCMBOT_APP_ID }}
+        private_key: ${{ secrets.OCMBOT_PRIV_KEY }}
+    - name: Publish Release Event
+      uses: peter-evans/repository-dispatch@v3
+      with:
+        token: ${{ steps.generate_token.outputs.token }}
+        repository: open-component-model/ocm-website
+        event-type: ocm-cli-release
+        client-payload: '{"tag": "${{ env.RELEASE_VERSION }}"}'

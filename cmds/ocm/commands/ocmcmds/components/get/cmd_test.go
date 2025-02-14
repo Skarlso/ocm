@@ -1,31 +1,31 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package get_test
 
 import (
 	"bytes"
 	"fmt"
 
+	. "github.com/mandelsoft/goutils/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/open-component-model/ocm/cmds/ocm/testhelper"
-	. "github.com/open-component-model/ocm/pkg/testutils"
+	. "ocm.software/ocm/cmds/ocm/testhelper"
 
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	compdescv3 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/versions/ocm.software/v3alpha1"
+	compdescv3 "ocm.software/ocm/api/ocm/compdesc/versions/ocm.software/v3alpha1"
+	"ocm.software/ocm/api/utils/accessio"
 )
 
-const ARCH = "/tmp/ca"
-const ARCH2 = "/tmp/ca2"
-const VERSION = "v1"
-const VERSION11 = "v1.1"
-const VERSION2 = "v2"
-const COMP = "test.de/x"
-const COMP2 = "test.de/y"
-const COMP3 = "test.de/z"
-const PROVIDER = "mandelsoft"
+const (
+	ARCH      = "/tmp/ca"
+	ARCH2     = "/tmp/ca2"
+	VERSION   = "v1"
+	VERSION11 = "v1.1"
+	VERSION2  = "v2"
+	COMP      = "test.de/x"
+	COMP2     = "test.de/y"
+	COMP3     = "test.de/z"
+	COMP4     = "test.de/c"
+	COMP5     = "test.de/d"
+	PROVIDER  = "mandelsoft"
+)
 
 var _ = Describe("Test Environment", func() {
 	var env *TestEnv
@@ -145,7 +145,7 @@ test.de/x v2      mandelsoft
 `))
 		})
 
-		It("lists constrainted version", func() {
+		It("lists constrained version", func() {
 			buf := bytes.NewBuffer(nil)
 			Expect(env.CatchOutput(buf).Execute("get", "components", "--constraints", ">1.0", "--repo", ARCH, COMP)).To(Succeed())
 			Expect(buf.String()).To(StringEqualTrimmedWithContext(
@@ -156,7 +156,7 @@ test.de/x v2      mandelsoft
 `))
 		})
 
-		It("lists constrainted version", func() {
+		It("lists constrained version", func() {
 			buf := bytes.NewBuffer(nil)
 			Expect(env.CatchOutput(buf).Execute("get", "components", "--constraints", "1.x.x", "--latest", "--repo", ARCH, COMP)).To(Succeed())
 			Expect(buf.String()).To(StringEqualTrimmedWithContext(
@@ -165,7 +165,6 @@ COMPONENT VERSION PROVIDER
 test.de/x v1.1    mandelsoft
 `))
 		})
-
 	})
 
 	Context("ctf", func() {
@@ -187,7 +186,6 @@ test.de/x v1.1    mandelsoft
 			})
 		})
 		It("lists closure ctf file", func() {
-
 			buf := bytes.NewBuffer(nil)
 			Expect(env.CatchOutput(buf).Execute("get", "components", "--lookup", ARCH2, "-r", "--repo", ARCH, COMP2)).To(Succeed())
 			Expect(buf.String()).To(StringEqualTrimmedWithContext(
@@ -198,7 +196,6 @@ test.de/y:v1  test.de/x v1      mandelsoft "name"="xx"
 `))
 		})
 		It("lists flat ctf file", func() {
-
 			buf := bytes.NewBuffer(nil)
 			Expect(env.CatchOutput(buf).Execute("get", "components", "-o", "tree", "--repo", ARCH, COMP2)).To(Succeed())
 			Expect(buf.String()).To(StringEqualTrimmedWithContext(
@@ -208,7 +205,6 @@ NESTING COMPONENT VERSION PROVIDER
 `))
 		})
 		It("lists flat ctf file with closure", func() {
-
 			buf := bytes.NewBuffer(nil)
 			Expect(env.CatchOutput(buf).Execute("get", "components", "-o", "tree", "--lookup", ARCH2, "-r", "--repo", ARCH, COMP2)).To(Succeed())
 			Expect(buf.String()).To(StringEqualTrimmedWithContext(
@@ -220,13 +216,12 @@ NESTING COMPONENT VERSION PROVIDER   IDENTITY
 		})
 
 		It("lists converted yaml", func() {
-
 			buf := bytes.NewBuffer(nil)
-			Expect(env.CatchOutput(buf).Execute("get", "components", "-S", compdescv3.SchemaVersion, "-o", "yaml", "--repo", ARCH, COMP2)).To(Succeed())
+			Expect(env.CatchOutput(buf).Execute("get", "components", "-S", compdescv3.VersionName, "-o", "yaml", "--repo", ARCH, COMP2)).To(Succeed())
 			Expect(buf.String()).To(StringEqualTrimmedWithContext(
 				fmt.Sprintf(`
 ---
-apiVersion: ocm.software/%s
+apiVersion: %s
 kind: ComponentVersion
 metadata:
   name: test.de/y
@@ -240,6 +235,81 @@ spec:
     name: xx
     version: v1
 `, compdescv3.SchemaVersion)))
+		})
+	})
+	Context("ctf", func() {
+		BeforeEach(func() {
+			env.OCMCommonTransport(ARCH, accessio.FormatDirectory, func() {
+				env.Component(COMP, func() {
+					env.Version(VERSION, func() {
+						env.Provider(PROVIDER)
+						env.Reference("yy", COMP2, VERSION)
+					})
+					env.Version(VERSION, func() {
+						env.Provider(PROVIDER)
+						env.Reference("zz", COMP3, VERSION)
+					})
+				})
+
+				env.Component(COMP2, func() {
+					env.Version(VERSION, func() {
+						env.Provider(PROVIDER)
+						env.Reference("aa", COMP4, VERSION)
+					})
+				})
+
+				env.Component(COMP3, func() {
+					env.Version(VERSION, func() {
+						env.Provider(PROVIDER)
+						env.Reference("cc", COMP4, VERSION)
+					})
+				})
+
+				env.Component(COMP4, func() {
+					env.Version(VERSION, func() {
+						env.Provider(PROVIDER)
+						env.Reference("dd", COMP5, VERSION)
+					})
+				})
+
+				env.Component(COMP5, func() {
+					env.Version(VERSION, func() {
+						env.Provider(PROVIDER)
+					})
+				})
+			})
+		})
+
+		// TODO: avoid duplicate entries in output
+		It("lists closure", func() {
+			buf := bytes.NewBuffer(nil)
+			Expect(env.CatchOutput(buf).Execute("get", "components", "-r", "--repo", ARCH, COMP)).To(Succeed())
+			Expect(buf.String()).To(StringEqualTrimmedWithContext(
+				`
+REFERENCEPATH                            COMPONENT VERSION PROVIDER   IDENTITY
+                                         test.de/x v1      mandelsoft 
+test.de/x:v1                             test.de/y v1      mandelsoft "name"="yy"
+test.de/x:v1->test.de/y:v1               test.de/c v1      mandelsoft "name"="aa"
+test.de/x:v1->test.de/y:v1->test.de/c:v1 test.de/d v1      mandelsoft "name"="dd"
+test.de/x:v1                             test.de/z v1      mandelsoft "name"="zz"
+test.de/x:v1->test.de/z:v1               test.de/c v1      mandelsoft "name"="cc"
+test.de/x:v1->test.de/z:v1->test.de/c:v1 test.de/d v1      mandelsoft "name"="dd"
+`))
+		})
+		It("lists closure as tree ", func() {
+			buf := bytes.NewBuffer(nil)
+			Expect(env.CatchOutput(buf).Execute("get", "components", "-otree", "-r", "--repo", ARCH, COMP)).To(Succeed())
+			Expect(buf.String()).To(StringEqualTrimmedWithContext(
+				`
+NESTING     COMPONENT VERSION PROVIDER   IDENTITY
+└─ ⊗        test.de/x v1      mandelsoft 
+   ├─ ⊗     test.de/y v1      mandelsoft "name"="yy"
+   │  └─ ⊗  test.de/c v1      mandelsoft "name"="aa"
+   │     └─ test.de/d v1      mandelsoft "name"="dd"
+   └─ ⊗     test.de/z v1      mandelsoft "name"="zz"
+      └─ ⊗  test.de/c v1      mandelsoft "name"="cc"
+         └─ test.de/d v1      mandelsoft "name"="dd"
+`))
 		})
 	})
 })

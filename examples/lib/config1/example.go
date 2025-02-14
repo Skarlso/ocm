@@ -1,19 +1,16 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package main
 
 import (
 	"fmt"
 
-	"github.com/open-component-model/ocm/examples/lib/helper"
-	"github.com/open-component-model/ocm/pkg/contexts/credentials"
-	ccfg "github.com/open-component-model/ocm/pkg/contexts/credentials/config"
-	"github.com/open-component-model/ocm/pkg/contexts/credentials/repositories/directcreds"
-	ociid "github.com/open-component-model/ocm/pkg/contexts/oci/identity"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/errors"
+	"github.com/mandelsoft/goutils/errors"
+
+	"ocm.software/ocm/api/credentials"
+	ccfg "ocm.software/ocm/api/credentials/config"
+	"ocm.software/ocm/api/credentials/extensions/repositories/directcreds"
+	"ocm.software/ocm/api/ocm"
+	ociid "ocm.software/ocm/api/tech/oci/identity"
+	"ocm.software/ocm/examples/lib/helper"
 )
 
 func UsingConfigs() error {

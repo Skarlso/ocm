@@ -2,19 +2,19 @@
 
 ### Synopsis
 
-```
+```bash
 ocm describe artifacts [<options>] {<artifact-reference>}
 ```
 
-##### Aliases
+#### Aliases
 
-```
+```text
 artifacts, artifact, art, a
 ```
 
 ### Options
 
-```
+```text
   -h, --help            help for artifacts
       --layerfiles      list layer files
   -o, --output string   output mode (JSON, json, yaml)
@@ -22,7 +22,6 @@ artifacts, artifact, art, a
 ```
 
 ### Description
-
 
 Describe lists all artifact versions specified, if only a repository is specified
 all tagged artifacts are listed.
@@ -37,7 +36,7 @@ relative to the specified registry using the syntax
     <pre>&lt;OCI repository name>[:&lt;tag>][@&lt;digest>]</pre>
 </center>
 
-If no <code>--repo</code> option is specified the given names are interpreted 
+If no <code>--repo</code> option is specified the given names are interpreted
 as extended OCI artifact references.
 
 <center>
@@ -53,7 +52,7 @@ The <code>--repo</code> option takes a repository/OCI registry specification:
 For the *Common Transport Format* the types <code>directory</code>,
 <code>tar</code> or <code>tgz</code> are possible.
 
-Using the JSON variant any repository types supported by the 
+Using the JSON variant any repository types supported by the
 linked library can be used:
   - <code>ArtifactSet</code>: v1
   - <code>CommonTransportFormat</code>: v1
@@ -71,17 +70,16 @@ The following modes are supported:
   - <code>json</code>
   - <code>yaml</code>
 
-
 ### Examples
 
-```
-$ ocm describe artifact ghcr.io/mandelsoft/kubelink
-$ ocm describe artifact --repo OCIRegistry::ghcr.io mandelsoft/kubelink
+```bash
+$ ocm describe artifact ghcr.io/open-component-model/ocm/component-descriptors/ocm.software/ocmcli:0.17.0
+$ ocm describe artifact ghcr.io/open-component-model/ocm/ocm.software/ocmcli/ocmcli-image:0.17.0
 ```
 
 ### SEE ALSO
 
-##### Parents
+#### Parents
 
 * [ocm describe](ocm_describe.md)	 &mdash; Describe various elements by using appropriate sub commands.
 * [ocm](ocm.md)	 &mdash; Open Component Model command line client

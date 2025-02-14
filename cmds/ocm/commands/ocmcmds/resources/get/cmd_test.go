@@ -1,28 +1,26 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package get_test
 
 import (
 	"bytes"
 
+	. "github.com/mandelsoft/goutils/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/open-component-model/ocm/cmds/ocm/testhelper"
-	. "github.com/open-component-model/ocm/pkg/testutils"
+	. "ocm.software/ocm/cmds/ocm/testhelper"
 
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	metav1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
-	"github.com/open-component-model/ocm/pkg/mime"
+	metav1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	"ocm.software/ocm/api/utils/accessio"
+	"ocm.software/ocm/api/utils/mime"
 )
 
-const ARCH = "/tmp/ca"
-const VERSION = "v1"
-const COMP = "test.de/x"
-const COMP2 = "test.de/y"
-const COMP3 = "test.de/z"
-const PROVIDER = "mandelsoft"
+const (
+	ARCH     = "/tmp/ca"
+	VERSION  = "v1"
+	COMP     = "test.de/x"
+	COMP2    = "test.de/y"
+	COMP3    = "test.de/z"
+	PROVIDER = "mandelsoft"
+)
 
 var _ = Describe("Test Environment", func() {
 	var env *TestEnv
@@ -53,7 +51,7 @@ testdata v1               PlainText local
 `))
 		})
 
-		It("lists ambigious resource in component archive", func() {
+		It("lists ambiguous resource in component archive", func() {
 			env.ComponentArchive(ARCH, accessio.FormatDirectory, COMP, VERSION, func() {
 				env.Provider(PROVIDER)
 				env.Resource("testdata", "", "PlainText", metav1.LocalRelation, func() {
@@ -111,7 +109,6 @@ COMPONENT    NAME     VERSION IDENTITY TYPE      RELATION
    └─        testdata v1               PlainText local
 `))
 		})
-
 	})
 
 	Context("ctf", func() {

@@ -1,31 +1,31 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package closureoption
 
 import (
 	"fmt"
 
+	"github.com/modern-go/reflect2"
 	"github.com/spf13/pflag"
 
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/options"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/output"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/processing"
-	"github.com/open-component-model/ocm/pkg/cobrautils/flag"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/transfer/transferhandler"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/transfer/transferhandler/standard"
-	"github.com/open-component-model/ocm/pkg/utils"
+	"ocm.software/ocm/api/ocm/tools/transfer/transferhandler"
+	"ocm.software/ocm/api/ocm/tools/transfer/transferhandler/standard"
+	"ocm.software/ocm/api/utils"
+	"ocm.software/ocm/api/utils/cobrautils/flag"
+	common "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/cmds/ocm/common/options"
+	"ocm.software/ocm/cmds/ocm/common/output"
+	"ocm.software/ocm/cmds/ocm/common/processing"
 )
 
 func From(o options.OptionSetProvider) *Option {
 	var opt *Option
-	o.AsOptionSet().Get(&opt)
+	if !reflect2.IsNil(o) {
+		o.AsOptionSet().Get(&opt)
+	}
 	return opt
 }
 
 type Option struct {
+	standard.TransferOptionsCreator
 	flag *pflag.Flag
 
 	ElementName      string
@@ -35,6 +35,8 @@ type Option struct {
 	AdditionalFields []string
 	FieldEnricher    func(interface{}) []string
 }
+
+var _ transferhandler.TransferOption = (*Option)(nil)
 
 func New(elemname string, settings ...interface{}) *Option {
 	o := &Option{ElementName: elemname, AddReferencePath: options.Always()}
@@ -113,7 +115,7 @@ func (o *Option) additionalFields(e interface{}) []string {
 }
 
 func (o *Option) Mapper(opts options.OptionSetProvider, path func(interface{}) string, mapper processing.MappingFunction) processing.MappingFunction {
-	if o.Closure {
+	if o != nil && o.Closure {
 		use := o.AddReferencePath(opts)
 		return func(e interface{}) interface{} {
 			fields := mapper(e).([]string)
@@ -156,7 +158,7 @@ type ClosureFunction func(*output.Options, interface{}) []interface{}
 func (c ClosureFunction) Exploder(opts *output.Options) processing.ExplodeFunction {
 	if c != nil {
 		copts := From(opts)
-		if copts.Closure {
+		if copts != nil && copts.Closure {
 			return func(e interface{}) []interface{} { return c(opts, e) }
 		}
 	}
@@ -166,7 +168,7 @@ func (c ClosureFunction) Exploder(opts *output.Options) processing.ExplodeFuncti
 func AddChain(opts *output.Options, chain, add processing.ProcessChain) processing.ProcessChain {
 	copts := From(opts)
 
-	if !copts.Closure {
+	if copts == nil || !copts.Closure {
 		return chain
 	}
 	return processing.Append(chain, add)

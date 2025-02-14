@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package add_test
 
 import (
@@ -12,22 +8,23 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/open-component-model/ocm/cmds/ocm/testhelper"
+	. "ocm.software/ocm/cmds/ocm/testhelper"
 
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/accessmethods/localblob"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc"
-	metav1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/repositories/comparch"
-	"github.com/open-component-model/ocm/pkg/mime"
+	"ocm.software/ocm/api/ocm/compdesc"
+	metav1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	"ocm.software/ocm/api/ocm/extensions/accessmethods/localblob"
+	"ocm.software/ocm/api/ocm/extensions/repositories/comparch"
+	"ocm.software/ocm/api/utils/blobaccess"
+	"ocm.software/ocm/api/utils/mime"
+	common "ocm.software/ocm/api/utils/misc"
 )
 
-const ARCH = "/tmp/ca"
-const VERSION = "v1"
+const (
+	ARCH    = "/tmp/ca"
+	VERSION = "v1"
+)
 
 func CheckArchiveSource(env *TestEnv, cd *compdesc.ComponentDescriptor, name string) {
-
 	r, err := cd.GetSourceByIdentity(metav1.NewIdentity(name))
 	Expect(err).To(Succeed())
 	Expect(r.Version).To(Equal(VERSION))
@@ -69,7 +66,7 @@ func CheckArchiveSource(env *TestEnv, cd *compdesc.ComponentDescriptor, name str
 }
 
 func CheckTextSource(env *TestEnv, cd *compdesc.ComponentDescriptor, name string) {
-	rblob := accessio.BlobAccessForFile(mime.MIME_TEXT, "/testdata/testcontent", env)
+	rblob := blobaccess.ForFile(mime.MIME_TEXT, "/testdata/testcontent", env)
 	dig := rblob.Digest()
 	data, err := rblob.Get()
 	Expect(err).To(Succeed())
@@ -134,7 +131,16 @@ var _ = Describe("Add sources", func() {
 		CheckTextSource(env, cd, "testdata")
 	})
 
-	Context("resource by options", func() {
+	It("adds duplicate text blob", func() {
+		Expect(env.Execute("add", "sources", "--file", ARCH, "/testdata/dupsources.yaml")).To(Succeed())
+		data, err := env.ReadFile(env.Join(ARCH, comparch.ComponentDescriptorFileName))
+		Expect(err).To(Succeed())
+		cd, err := compdesc.Decode(data)
+		Expect(err).To(Succeed())
+		Expect(len(cd.Sources)).To(Equal(2))
+	})
+
+	Context("source by options", func() {
 		It("adds simple text blob", func() {
 			meta := `
 name: testdata

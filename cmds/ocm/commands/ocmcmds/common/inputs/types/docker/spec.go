@@ -1,19 +1,15 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package docker
 
 import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs/cpi"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs/types/ociimage"
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	"github.com/open-component-model/ocm/pkg/contexts/oci/repositories/artifactset"
-	"github.com/open-component-model/ocm/pkg/contexts/oci/repositories/docker"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/accessmethods/ociartifact"
+	"ocm.software/ocm/api/oci/extensions/repositories/docker"
+	"ocm.software/ocm/api/ocm/extensions/accessmethods/ociartifact"
+	"ocm.software/ocm/api/utils/blobaccess"
+	"ocm.software/ocm/api/utils/blobaccess/dockerdaemon"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs/cpi"
+	ociartifact2 "ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs/types/ociartifact"
 )
 
 type Spec struct {
@@ -33,7 +29,7 @@ func New(pathtag string) *Spec {
 
 func (s *Spec) Validate(fldPath *field.Path, ctx inputs.Context, inputFilePath string) field.ErrorList {
 	allErrs := s.PathSpec.Validate(fldPath, ctx, inputFilePath)
-	allErrs = ociimage.ValidateRepository(fldPath.Child("repository"), allErrs, s.Repository)
+	allErrs = ociartifact2.ValidateRepository(fldPath.Child("repository"), allErrs, s.Repository)
 
 	if s.Path != "" {
 		pathField := fldPath.Child("path")
@@ -45,26 +41,13 @@ func (s *Spec) Validate(fldPath *field.Path, ctx inputs.Context, inputFilePath s
 	return allErrs
 }
 
-func (s *Spec) GetBlob(ctx inputs.Context, info inputs.InputResourceInfo) (accessio.TemporaryBlobAccess, string, error) {
+func (s *Spec) GetBlob(ctx inputs.Context, info inputs.InputResourceInfo) (blobaccess.BlobAccess, string, error) {
 	ctx.Printf("image %s\n", s.Path)
-	locator, version, err := docker.ParseGenericRef(s.Path)
+	locator, _, err := docker.ParseGenericRef(s.Path)
 	if err != nil {
 		return nil, "", err
 	}
-	spec := docker.NewRepositorySpec()
-	repo, err := ctx.OCIContext().RepositoryForSpec(spec)
-	if err != nil {
-		return nil, "", err
-	}
-	ns, err := repo.LookupNamespace(locator)
-	if err != nil {
-		return nil, "", err
-	}
-
-	if version == "" || version == "latest" {
-		version = info.ComponentVersion.GetVersion()
-	}
-	blob, err := artifactset.SynthesizeArtifactBlob(ns, version)
+	blob, version, err := dockerdaemon.BlobAccess(s.Path, dockerdaemon.WithVersion(info.ComponentVersion.GetVersion()), dockerdaemon.WithOrigin(info.ComponentVersion))
 	if err != nil {
 		return nil, "", err
 	}

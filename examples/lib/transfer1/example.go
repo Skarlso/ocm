@@ -1,35 +1,35 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package main
 
 import (
 	"fmt"
 	"os"
 
+	"github.com/mandelsoft/goutils/errors"
 	// "github.com/mandelsoft/vfs/pkg/memoryfs"
+	"github.com/mandelsoft/goutils/finalizer"
 	"github.com/mandelsoft/vfs/pkg/osfs"
 	"github.com/mandelsoft/vfs/pkg/vfs"
-	"github.com/open-component-model/ocm/examples/lib/helper"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	"github.com/open-component-model/ocm/pkg/common/accessobj"
-	"github.com/open-component-model/ocm/pkg/contexts/config/configutils"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc"
-	metav1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/repositories/ctf"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/resourcetypes"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/transfer"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/transfer/transferhandler/standard"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/finalizer"
-	"github.com/open-component-model/ocm/pkg/mime"
+
+	"ocm.software/ocm/api/config/configutils"
+	"ocm.software/ocm/api/ocm"
+	"ocm.software/ocm/api/ocm/compdesc"
+	metav1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	resourcetypes "ocm.software/ocm/api/ocm/extensions/artifacttypes"
+	"ocm.software/ocm/api/ocm/extensions/repositories/ctf"
+	"ocm.software/ocm/api/ocm/tools/transfer"
+	"ocm.software/ocm/api/ocm/tools/transfer/transferhandler/standard"
+	"ocm.software/ocm/api/utils/accessio"
+	"ocm.software/ocm/api/utils/accessobj"
+	"ocm.software/ocm/api/utils/blobaccess"
+	"ocm.software/ocm/api/utils/mime"
+	common "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/examples/lib/helper"
 )
 
-const componentName = "github.com/mandelsoft/test1"
-const componentVersion = "0.1.0"
+const (
+	componentName    = "github.com/mandelsoft/test1"
+	componentVersion = "0.1.0"
+)
 
 const resourceName = "package"
 
@@ -54,7 +54,7 @@ func setupComponents(repo ocm.Repository) (rerr error) {
 
 	cv.GetDescriptor().Provider.Name = "acne.org"
 	err = cv.SetResourceBlob(compdesc.NewResourceMeta(resourceName, resourcetypes.PLAIN_TEXT, metav1.LocalRelation),
-		accessio.BlobAccessForString(mime.MIME_TEXT, "test data"),
+		blobaccess.ForString(mime.MIME_TEXT, "test data"),
 		"", nil)
 	if err != nil {
 		return errors.Wrapf(err, "cannot add resource test")

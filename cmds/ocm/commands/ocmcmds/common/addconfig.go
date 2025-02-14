@@ -1,26 +1,23 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package common
 
 import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/mandelsoft/goutils/errors"
+	"github.com/mandelsoft/goutils/sliceutils"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/pflag"
 	"sigs.k8s.io/yaml"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/templateroption"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/options"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/errors"
+	clictx "ocm.software/ocm/api/cli"
+	utils2 "ocm.software/ocm/api/utils"
+	common "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/templateroption"
+	"ocm.software/ocm/cmds/ocm/common/options"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 type ModifiedResourceSpecificationsFile struct {
@@ -31,7 +28,7 @@ type ModifiedResourceSpecificationsFile struct {
 func NewModifiedResourceSpecificationsFile(data string, path string, fss ...vfs.FileSystem) addhdlrs.ElementSource {
 	return &ModifiedResourceSpecificationsFile{
 		ElementFileSource: ElementFileSource{
-			filesystem: accessio.FileSystem(fss...),
+			filesystem: utils2.FileSystem(fss...),
 			path:       addhdlrs.NewSourceInfo(path),
 		},
 		modified: data,
@@ -57,7 +54,7 @@ type ResourceConfigAdderCommand struct {
 // NewCommand creates a new ctf command.
 func NewResourceConfigAdderCommand(ctx clictx.Context, adder ElementSpecificationsProvider, opts ...options.Options) ResourceConfigAdderCommand {
 	return ResourceConfigAdderCommand{
-		BaseCommand: utils.NewBaseCommand(ctx, append(opts, templateroption.New("none"))...),
+		BaseCommand: utils.NewBaseCommand(ctx, sliceutils.CopyAppend[options.Options](opts, templateroption.New("none"))...),
 		Adder:       adder,
 	}
 }
@@ -109,19 +106,27 @@ func (o *ResourceConfigAdderCommand) ProcessResourceDescriptions(h ResourceSpecH
 	listkey := utils.Plural(h.Key(), 0)
 
 	var current string
-	if ok, err := vfs.FileExists(fs, o.ConfigFile); ok {
-		fi, err := fs.Stat(o.ConfigFile)
+	configFile, err := utils2.ResolvePath(o.ConfigFile)
+	if err != nil {
+		return errors.Wrapf(err, "failed to resolve config file %s", o.ConfigFile)
+	}
+
+	ok, err := vfs.FileExists(fs, configFile)
+	if err != nil {
+		return errors.Wrapf(err, "cannot read %s config file %q", listkey, o.ConfigFile)
+	}
+
+	if ok {
+		fi, err := fs.Stat(configFile)
 		if err != nil {
 			return errors.Wrapf(err, "cannot stat %s config file %q", listkey, o.ConfigFile)
 		}
 		mode = fi.Mode().Perm()
-		data, err := vfs.ReadFile(fs, o.ConfigFile)
+		data, err := vfs.ReadFile(fs, configFile)
 		if err != nil {
 			return errors.Wrapf(err, "cannot read %s config file %q", listkey, o.ConfigFile)
 		}
 		current = string(data)
-	} else if err != nil {
-		return errors.Wrapf(err, "cannot read %s config file %q", listkey, o.ConfigFile)
 	}
 
 	for _, source := range o.Resources {

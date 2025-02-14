@@ -1,20 +1,18 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package common
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/options"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc"
-	metav1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
-	"github.com/open-component-model/ocm/pkg/errors"
-	utils2 "github.com/open-component-model/ocm/pkg/utils"
+	"github.com/mandelsoft/goutils/errors"
+	"github.com/mandelsoft/goutils/general"
+
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm"
+	"ocm.software/ocm/api/ocm/compdesc"
+	metav1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	utils2 "ocm.software/ocm/api/utils"
+	"ocm.software/ocm/cmds/ocm/common/options"
 )
 
 func ConsumeIdentities(pattern bool, args []string, stop ...string) ([]metav1.Identity, []string, error) {
@@ -69,20 +67,29 @@ func MapArgsToIdentityPattern(args ...string) (metav1.Identity, error) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// OptionWithSessionCompleter describes the interface for option objects requiring
+// a completion with a session.
 type OptionWithSessionCompleter interface {
 	CompleteWithSession(ctx clictx.OCM, session ocm.Session) error
 }
 
-func CompleteOptionsWithSession(ctx clictx.Context, session ocm.Session) options.OptionsProcessor {
+// CompleteOptionsWithSession provides an options.OptionsProcessor completing
+// options by passing a session object using the OptionWithSessionCompleter interface.
+// If an optional argument true is given, it also tries the other standard completion
+// methods possible for an options object.
+func CompleteOptionsWithSession(ctx clictx.Context, session ocm.Session, all ...bool) options.OptionsProcessor {
+	otherCompleters := general.Optional(all...)
 	return func(opt options.Options) error {
 		if c, ok := opt.(OptionWithSessionCompleter); ok {
 			return c.CompleteWithSession(ctx.OCM(), session)
 		}
-		if c, ok := opt.(options.OptionWithCLIContextCompleter); ok {
-			return c.Configure(ctx)
-		}
-		if c, ok := opt.(options.SimpleOptionCompleter); ok {
-			return c.Complete()
+		if otherCompleters {
+			if c, ok := opt.(options.OptionWithCLIContextCompleter); ok {
+				return c.Configure(ctx)
+			}
+			if c, ok := opt.(options.SimpleOptionCompleter); ok {
+				return c.Complete()
+			}
 		}
 		return nil
 	}

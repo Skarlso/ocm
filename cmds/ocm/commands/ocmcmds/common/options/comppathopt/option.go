@@ -1,15 +1,11 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package comppathopt
 
 import (
 	"github.com/spf13/pflag"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/output"
-	metav1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
+	metav1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common"
+	"ocm.software/ocm/cmds/ocm/common/output"
 )
 
 func From(o *output.Options) *Option {
@@ -43,7 +39,7 @@ func (o *Option) Complete(args []string) ([]string, error) {
 
 func (o *Option) Usage() string {
 	s := `
-The <code>--path</code> options accets a sequence of identities,
+The <code>--path</code> options accepts a sequence of identities,
 that will be used to follow component references a the specified
 component(s).
 

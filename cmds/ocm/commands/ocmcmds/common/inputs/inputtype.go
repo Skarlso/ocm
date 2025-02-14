@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package inputs
 
 import (
@@ -10,17 +6,17 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/mandelsoft/goutils/errors"
 	"github.com/modern-go/reflect2"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	"github.com/open-component-model/ocm/pkg/cobrautils/flagsets"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/datacontext"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/runtime"
-	"github.com/open-component-model/ocm/pkg/utils"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/datacontext"
+	"ocm.software/ocm/api/utils"
+	"ocm.software/ocm/api/utils/blobaccess"
+	"ocm.software/ocm/api/utils/cobrautils/flagsets"
+	common "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/api/utils/runtime"
 )
 
 const KIND_INPUTTYPE = "input type"
@@ -87,7 +83,7 @@ type InputResourceInfo struct {
 type InputSpec interface {
 	runtime.VersionedTypedObject
 	Validate(fldPath *field.Path, ctx Context, inputFilePath string) field.ErrorList
-	GetBlob(ctx Context, info InputResourceInfo) (accessio.TemporaryBlobAccess, string, error)
+	GetBlob(ctx Context, info InputResourceInfo) (blobaccess.BlobAccess, string, error)
 	GetInputVersion(ctx Context) string
 }
 
@@ -100,8 +96,7 @@ func (*InputSpecBase) GetInputVersion(ctx Context) string {
 }
 
 type (
-	InputSpecDecoder  = runtime.TypedObjectDecoder[InputSpec]
-	_InputSpecDecoder = runtime.TypedObjectDecoder[InputSpec]
+	InputSpecDecoder = runtime.TypedObjectDecoder[InputSpec]
 )
 
 type InputType interface {
@@ -168,6 +163,7 @@ type InputTypeScheme interface {
 	GetInputType(name string) InputType
 	Register(atype InputType)
 
+	GetInputSpecFor(opts flagsets.ConfigOptions) (InputSpec, error)
 	DecodeInputSpec(data []byte, unmarshaler runtime.Unmarshaler) (InputSpec, error)
 	CreateInputSpec(obj runtime.TypedObject) (InputSpec, error)
 }
@@ -179,7 +175,7 @@ type inputTypeScheme struct {
 
 func NewInputTypeScheme(defaultRepoDecoder runtime.TypedObjectDecoder[InputSpec]) InputTypeScheme {
 	scheme := runtime.MustNewDefaultScheme[InputSpec, InputType](&UnknownInputSpec{}, false, defaultRepoDecoder)
-	prov := flagsets.NewTypedConfigProvider("input", "blob input specification")
+	prov := flagsets.NewTypedConfigProvider("input", "blob input specification", "inputType")
 	prov.AddGroups("Input Specification Options")
 	return &inputTypeScheme{scheme, prov}
 }
@@ -192,6 +188,18 @@ func (t *inputTypeScheme) CreateOptions() flagsets.ConfigOptions {
 	return t.optionTypes.CreateOptions()
 }
 
+func (t *inputTypeScheme) GetInputSpecFor(opts flagsets.ConfigOptions) (InputSpec, error) {
+	cfg, err := t.GetConfigFor(opts)
+	if err != nil {
+		return nil, err
+	}
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return t.DecodeInputSpec(data, runtime.DefaultJSONEncoding)
+}
+
 func (t *inputTypeScheme) GetConfigFor(opts flagsets.ConfigOptions) (flagsets.Config, error) {
 	return t.optionTypes.GetConfigFor(opts)
 }
@@ -201,7 +209,7 @@ func (t *inputTypeScheme) GetInputType(name string) InputType {
 	if d == nil {
 		return nil
 	}
-	return d.(InputType)
+	return d
 }
 
 func (t *inputTypeScheme) Register(rtype InputType) {
@@ -222,7 +230,7 @@ func (t *inputTypeScheme) CreateInputSpec(obj runtime.TypedObject) (InputSpec, e
 		if err != nil {
 			return nil, err
 		}
-		return r.(InputSpec), nil
+		return r, nil
 	}
 	if u, ok := obj.(*runtime.UnstructuredTypedObject); ok {
 		raw, err := u.GetRaw()
@@ -247,7 +255,7 @@ func CreateRepositorySpec(t runtime.TypedObject) (InputSpec, error) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-const ATTR_INPUT_TYPES = "github.com/open-component-model/ocm/cmds/ocm/common/inputs"
+const ATTR_INPUT_TYPES = "ocm.software/ocm/cmds/ocm/common/inputs"
 
 func For(ctx datacontext.Context) InputTypeScheme {
 	if ctx == nil {
@@ -272,7 +280,7 @@ func (r *UnknownInputSpec) Validate(fldPath *field.Path, ctx Context, inputFileP
 	return field.ErrorList{field.Invalid(fldPath.Child("type"), r.GetType(), "unknown type")}
 }
 
-func (r *UnknownInputSpec) GetBlob(ctx Context, info InputResourceInfo) (accessio.TemporaryBlobAccess, string, error) {
+func (r *UnknownInputSpec) GetBlob(ctx Context, info InputResourceInfo) (blobaccess.BlobAccess, string, error) {
 	return nil, "", errors.ErrUnknown("input type", r.GetType())
 }
 
@@ -329,7 +337,7 @@ func (s *GenericInputSpec) Validate(fldPath *field.Path, ctx Context, inputFileP
 	return s.effective.Validate(fldPath, ctx, inputFilePath)
 }
 
-func (s *GenericInputSpec) GetBlob(ctx Context, info InputResourceInfo) (accessio.TemporaryBlobAccess, string, error) {
+func (s *GenericInputSpec) GetBlob(ctx Context, info InputResourceInfo) (blobaccess.BlobAccess, string, error) {
 	if s.effective == nil {
 		var err error
 		s.effective, err = s.Evaluate(For(ctx))

@@ -2,9 +2,8 @@
 
 ### Description
 
-
-TOI is a small toolset on top of the Open Component Model. It provides
-a possibility to run images taken from a component version with user
+Tiny OCM Installer (TOI) is a small toolset on top of the Open Component Model.
+It provides a possibility to run images taken from a component version with user
 configuration and feed them with the content of this component version.
 It is some basic mechanism, which can be used to execute simple installation
 steps based on content described by the Open Component Model
@@ -101,7 +100,7 @@ It has the following format:
   - **<code>configFile</code>**: an example template for a parameter file
   - **<code>credentialsFile</code>**: an example template for a credentials file
 
-  Those templates can be downloaded with [ocm bootstrap config](ocm_bootstrap_config.md).
+  Those templates can be downloaded with [ocm bootstrap configuration](ocm_bootstrap_configuration.md).
 
 #### *ExecutorSpecification*
 
@@ -114,7 +113,7 @@ to executors. It uses the following fields:
   the executor will be used for all actions. The first matching executor entry
   will be used to execute an action by the bootstrap command
 
-- **<code>resourceRef</code>** *[]ResourceReference*
+- **<code>resourceRef</code>** *ResourceReference*
 
   An OCM resource reference describing a component version resource relative to
   the component version containing the package resource.
@@ -183,7 +182,7 @@ This field has either the fields of a *ResourceReference* to refer to the
 content of an OCM resource or the field:
 
 - **<code>content</code>** *string|[]byte|YAML*
-  
+
   Either a resource reference or the field <code>content</code> must be given.
   The content field may contain a string or an inline YAML document.
   For larger content the resource reference form should be preferred.
@@ -200,7 +199,7 @@ defines additional identity attributes, the complete set must be specified.
 
 An optional <code>parameterMapping</code> in the executor section
 can be used to process the global package user-specified parameters
-to provide specifc values expected by the executor.
+to provide specific values expected by the executor.
 
 This is done by a _spiff_ template. Here special functions
 are provided to access specific content:
@@ -233,19 +232,19 @@ An executor is typically able to handle a complete class of installations.
 It describes a dedicated installation mechanism, but not a dedicated
 installation source. Although, there might be specialized images
 for dedicated installation sources, in general the idea is to provide
-more general executors, for example an helmexecutor, which is able to
+more general executors, for example an helm executor, which is able to
 handle any helm chart, not just a dedicated helm deployment.
 
 Because of this, there is a clear separation between an installation specific
 configuration, which is provided by the user calling the TOI commands, and
 the parameterization of the executor, which is completely specified in the
-package. 
+package.
 
 The task of the package is to represent a dedicated deployment source. As such
 it has to provide information to tell the executor what to install, while
 the user configuration is used to describe the instance specific settings.
 
-Back to the example of a helminstaller executor, the executor config contained
+Back to the example of a helm installer executor, the executor config contained
 in the package resource describes the helm chart, which should be installed
 and the way how the user input is mapped to chart values. Here, also the
 localizations are described in an executor specific way.
@@ -400,10 +399,9 @@ Basically the output may contain any data, but is strongly recommended
 to use yaml or json files, only. This enables further formal processing
 by the TOI toolset.
 
-
 ### Examples
 
-```
+```yaml
 description: |
   This package is just an example.
 executors:
@@ -452,7 +450,7 @@ additionalResources:
 
 ### SEE ALSO
 
-##### Parents
+#### Parents
 
 * [ocm](ocm.md)	 &mdash; Open Component Model command line client
 
@@ -461,7 +459,6 @@ additionalResources:
 ##### Additional Links
 
 * [<b>ocm bootstrap package</b>](ocm_bootstrap_package.md)	 &mdash; bootstrap component version
-* [<b>ocm bootstrap package</b>](ocm_bootstrap_package.md)	 &mdash; bootstrap component version
-* [<b>ocm bootstrap config</b>](ocm_bootstrap_config.md)
+* [<b>ocm bootstrap configuration</b>](ocm_bootstrap_configuration.md)	 &mdash; bootstrap TOI configuration files
 * [<b>ocm configfile</b>](ocm_configfile.md)	 &mdash; configuration file
 

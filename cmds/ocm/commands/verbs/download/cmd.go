@@ -1,18 +1,15 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package download
 
 import (
 	"github.com/spf13/cobra"
 
-	artifacts "github.com/open-component-model/ocm/cmds/ocm/commands/ocicmds/artifacts/download"
-	components "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/components/download"
-	resources "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/resources/download"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
+	clictx "ocm.software/ocm/api/cli"
+	artifacts "ocm.software/ocm/cmds/ocm/commands/ocicmds/artifacts/download"
+	cli "ocm.software/ocm/cmds/ocm/commands/ocmcmds/cli/download"
+	components "ocm.software/ocm/cmds/ocm/commands/ocmcmds/components/download"
+	resources "ocm.software/ocm/cmds/ocm/commands/ocmcmds/resources/download"
+	"ocm.software/ocm/cmds/ocm/commands/verbs"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 // NewCommand creates a new command.
@@ -23,5 +20,6 @@ func NewCommand(ctx clictx.Context) *cobra.Command {
 	cmd.AddCommand(resources.NewCommand(ctx))
 	cmd.AddCommand(artifacts.NewCommand(ctx))
 	cmd.AddCommand(components.NewCommand(ctx))
+	cmd.AddCommand(cli.NewCommand(ctx))
 	return cmd
 }

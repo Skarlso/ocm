@@ -1,16 +1,12 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package app
 
 import (
+	"github.com/mandelsoft/goutils/errors"
 	"github.com/mandelsoft/vfs/pkg/osfs"
 
-	"github.com/open-component-model/ocm/cmds/helminstaller/app/driver"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/runtime"
-	"github.com/open-component-model/ocm/pkg/toi/support"
+	"ocm.software/ocm/api/ocm/tools/toi/support"
+	"ocm.software/ocm/api/utils/runtime"
+	"ocm.software/ocm/cmds/helminstaller/app/driver"
 )
 
 func New(d driver.Driver) func(o *support.ExecutorOptions) error {

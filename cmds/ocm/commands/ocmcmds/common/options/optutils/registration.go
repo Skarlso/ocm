@@ -1,28 +1,34 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package optutils
 
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
-	"github.com/mandelsoft/vfs/pkg/vfs"
+	"github.com/mandelsoft/goutils/errors"
+	"github.com/mandelsoft/goutils/generics"
 	"github.com/spf13/pflag"
 	"sigs.k8s.io/yaml"
 
-	"github.com/open-component-model/ocm/pkg/cobrautils/flag"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/errors"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/utils"
+	"ocm.software/ocm/api/utils/cobrautils/flag"
 )
 
 type Registration struct {
 	Name         string
 	ArtifactType string
 	MediaType    string
-	Config       json.RawMessage
+	Prio         *int
+	Config       interface{}
+}
+
+func (r *Registration) GetPriority(def int) int {
+	if r.Prio != nil {
+		return *r.Prio
+	}
+	return def
 }
 
 func NewRegistrationOption(name, short, desc, usage string) RegistrationOption {
@@ -38,7 +44,7 @@ type RegistrationOption struct {
 	Registrations []*Registration
 }
 
-const RegistrationFormat = "<name>[:<artifact type>[:<media type>]]=<JSON target config"
+const RegistrationFormat = "<name>[:<artifact type>[:<media type>[:<priority>]]]=<JSON target config>"
 
 func (o *RegistrationOption) AddFlags(fs *pflag.FlagSet) {
 	flag.StringToStringVarP(fs, &o.spec, o.name, o.short, nil, fmt.Sprintf("%s (%s)", o.desc, RegistrationFormat))
@@ -50,34 +56,48 @@ func (o *RegistrationOption) HasRegistrations() bool {
 
 func (o *RegistrationOption) Configure(ctx clictx.Context) error {
 	for n, v := range o.spec {
-		nam := n
+		var prio *int
+		name := n
 		art := ""
 		med := ""
-		i := strings.Index(nam, ":")
+		i := strings.Index(name, ":")
 		if i >= 0 {
-			art = nam[i+1:]
-			nam = nam[:i]
-			i = strings.Index(art, ":")
-			if i >= 0 {
-				med = art[i+1:]
-				art = art[:i]
-				i = strings.Index(med, ":")
-				if i >= 0 {
-					return fmt.Errorf("invalid %s registration %s must be of %s", o.name, n, RegistrationFormat)
-				}
+			art = name[i+1:]
+			name = name[:i]
+		}
+		i = strings.Index(art, ":")
+		if i >= 0 {
+			med = art[i+1:]
+			art = art[:i]
+		}
+		i = strings.Index(med, ":")
+		if i >= 0 {
+			p := med[i+1:]
+			med = med[:i]
+
+			v, err := strconv.ParseInt(p, 10, 32)
+			if err != nil {
+				return fmt.Errorf("invalid %s registration %s (invalid priority) must be of %s", o.name, n, RegistrationFormat)
 			}
+			prio = generics.Pointer(int(v))
+		}
+		i = strings.Index(med, ":")
+		if i >= 0 {
+			return fmt.Errorf("invalid %s registration %s must be of %s", o.name, n, RegistrationFormat)
 		}
 
-		var data json.RawMessage
+		var data interface{}
 		var raw []byte
 		var err error
 		if strings.HasPrefix(v, "@") {
-			raw, err = vfs.ReadFile(ctx.FileSystem(), v[1:])
+			raw, err = utils.ReadFile(v[1:], ctx.FileSystem())
 			if err != nil {
 				return errors.Wrapf(err, "cannot read %s config from %q", o.name, v[1:])
 			}
 		} else {
-			raw = []byte(v)
+			if v != "" {
+				raw = []byte(v)
+			}
 		}
 
 		if len(raw) > 0 {
@@ -92,9 +112,10 @@ func (o *RegistrationOption) Configure(ctx clictx.Context) error {
 		}
 
 		o.Registrations = append(o.Registrations, &Registration{
-			Name:         nam,
+			Name:         name,
 			ArtifactType: art,
 			MediaType:    med,
+			Prio:         prio,
 			Config:       data,
 		})
 	}

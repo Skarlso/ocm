@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package get
 
 import (
@@ -9,19 +5,19 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/mandelsoft/goutils/set"
 	"github.com/spf13/cobra"
 
-	handler "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/handlers/pluginhdlr"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/names"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/output"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/processing"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/plugin"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/plugin/common"
-	"github.com/open-component-model/ocm/pkg/generics"
-	utils2 "github.com/open-component-model/ocm/pkg/utils"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm/plugin"
+	"ocm.software/ocm/api/ocm/plugin/common"
+	utils2 "ocm.software/ocm/api/utils"
+	handler "ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/handlers/pluginhdlr"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/names"
+	"ocm.software/ocm/cmds/ocm/commands/verbs"
+	"ocm.software/ocm/cmds/ocm/common/output"
+	"ocm.software/ocm/cmds/ocm/common/processing"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 var (
@@ -57,6 +53,7 @@ all registered ones are listed.
 $ ocm get plugins
 $ ocm get plugins demo -o yaml
 `,
+		Annotations: map[string]string{"ExampleCodeStyle": "bash"},
 	}
 }
 
@@ -97,25 +94,9 @@ func getWide(opts *output.Options) output.Output {
 
 func mapGetRegularOutput(e interface{}) interface{} {
 	p := handler.Elem(e)
-	loc := "local"
-	src := p.GetSource()
-	if src != nil {
-		loc = src.Component + ":" + src.Version
-	}
+	loc := p.GetSourceInfo().GetDescription()
 
-	var features []string
-	if len(p.GetDescriptor().AccessMethods) > 0 {
-		features = append(features, "accessmethods")
-	}
-	if len(p.GetDescriptor().Uploaders) > 0 {
-		features = append(features, "uploaders")
-	}
-	if len(p.GetDescriptor().Downloaders) > 0 {
-		features = append(features, "downloaders")
-	}
-	if len(p.GetDescriptor().Actions) > 0 {
-		features = append(features, "actions")
-	}
+	features := p.GetDescriptor().Capabilities()
 	return []string{p.Name(), p.Version(), loc, p.Message(), strings.Join(features, ",")}
 }
 
@@ -144,7 +125,7 @@ func mapGetWideOutput(e interface{}) interface{} {
 		}
 	}
 
-	actions := generics.Set[string]{}
+	actions := set.New[string]()
 	for _, a := range d.Actions {
 		actions.Add(a.Name)
 	}

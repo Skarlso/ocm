@@ -1,25 +1,42 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package addhdlrs
 
 import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/cpi"
-	"github.com/open-component-model/ocm/pkg/errors"
+	"github.com/mandelsoft/goutils/errors"
+	"github.com/mandelsoft/goutils/sliceutils"
+
+	clictx "ocm.software/ocm/api/cli"
+	metav1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	"ocm.software/ocm/api/ocm/cpi"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
 )
 
+// ResourceInput describe the source for the content of
+// a content based element (sources or resources).
+// It is either an input or access specification.
 type ResourceInput struct {
-	Access *cpi.GenericAccessSpec `json:"access"`
+	// SourceFile described the original source (file) the input
+	// is taken from. By default, this is not set since it is taken from the
+	// file information of the processed constructor resource.
+	// If an input aggregated in a constructor resource is provided
+	// by some other source, this field can be set.
+	// The source information is finally used by the input implementations
+	// to evaluate relative path specifications in the input specification.
+	// This should always relate to the original source.
+	SourceFile string                 `json:"sourceFile,omitempty"`
+	Access     *cpi.GenericAccessSpec `json:"access"`
 	// Input  *inputs.BlobInput                `json:"input,omitempty"`
 	Input *inputs.GenericInputSpec `json:"input,omitempty"`
 }
 
+func (r *ResourceInput) SetSourceFile(s string) {
+	r.SourceFile = s
+}
+
+// ElementSpecHandler is the interface for a handler
+// responsible to handle a dedicated kind of element specification.
 type ElementSpecHandler interface {
 	Key() string
 	RequireInputs() bool
@@ -27,7 +44,10 @@ type ElementSpecHandler interface {
 }
 
 type ElementSource interface {
+	// Origin provides access to the source
+	// specification used to provide elements.
 	Origin() SourceInfo
+	// Get provides access to the content of the element source.
 	Get() (string, error)
 }
 
@@ -54,7 +74,7 @@ func (s *sourceInfo) Sub(indices ...interface{}) SourceInfo {
 	}
 	return &sourceInfo{
 		origin:  s.origin,
-		indices: append(s.indices, indices...),
+		indices: sliceutils.CopyAppend(s.indices, indices...),
 	}
 }
 
@@ -74,19 +94,33 @@ func (s *sourceInfo) Id() string {
 	return id
 }
 
+// ElementSpec is the specification of
+// the model element. It provides access to
+// common attributes, like the identity.
 type ElementSpec interface {
 	GetName() string
 	GetVersion() string
 	SetVersion(string)
+	GetRawIdentity() metav1.Identity
 	Info() string
 	Validate(ctx clictx.Context, input *ResourceInput) error
 }
 
+// Element is the abstraction over model elements handled by
+// the add handler, for example, resources, sources, references or complete
+// component versions.
 type Element interface {
+	// Source provides info about the source the element has been
+	// derived from. (for example a component-constructor.yaml or resources.yaml).
 	Source() SourceInfo
+	// Spec provides access to the element specification.
 	Spec() ElementSpec
+	// Type is used for types elements, like sources and resources.
 	Type() string
+	// Data provides access to the element descriptor representation.
 	Data() []byte
+	// Input provides access to the underlying data specification.
+	// It is either an access specification or an input specification.
 	Input() *ResourceInput
 }
 

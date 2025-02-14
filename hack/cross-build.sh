@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-#
-# SPDX-License-Identifier: Apache-2.0
-
 set -e
 
 CURRENT_DIR=$(dirname $0)
@@ -26,10 +22,10 @@ for i in "${build_matrix[@]}"; do
   CGO_ENABLED=0 GOOS=$os GOARCH=$arch GO111MODULE=on \
   go build -o $bin_path \
   -ldflags "-s -w \
-            -X github.com/open-component-model/ocm/pkg/version.gitVersion=$EFFECTIVE_VERSION \
-            -X github.com/open-component-model/ocm/pkg/version.gitTreeState=$([ -z "$(git status --porcelain 2>/dev/null)" ] && echo clean || echo dirty) \
-            -X github.com/open-component-model/ocm/pkg/version.gitCommit=$(git rev-parse --verify HEAD) \
-            -X github.com/open-component-model/ocm/pkg/version.buildDate=$(date -u +%FT%T%z)" \
+            -X ocm.software/ocm/api/version.gitVersion=$EFFECTIVE_VERSION \
+            -X ocm.software/ocm/api/version.gitTreeState=$([ -z "$(git status --porcelain 2>/dev/null)" ] && echo clean || echo dirty) \
+            -X ocm.software/ocm/api/version.gitCommit=$(git rev-parse --verify HEAD) \
+            -X ocm.software/ocm/api/version.buildDate=$(date -u +%FT%T%z)" \
   ${PROJECT_ROOT}/cmds/ocm
 
   # create zipped file

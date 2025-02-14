@@ -2,19 +2,19 @@
 
 ### Synopsis
 
-```
+```bash
 ocm get componentversions [<options>] {<component-reference>}
 ```
 
-##### Aliases
+#### Aliases
 
-```
+```text
 componentversions, componentversion, cv, components, component, comps, comp, c
 ```
 
 ### Options
 
-```
+```text
   -c, --constraints constraints   version constraint
   -h, --help                      help for componentversions
       --latest                    restrict component versions to latest
@@ -28,13 +28,14 @@ componentversions, componentversion, cv, components, component, comps, comp, c
 
 ### Description
 
-
 Get lists all component versions specified, if only a component is specified
 all versions are listed.
 
 
-If the option <code>--constraints</code> is given, and no version is specified for a component, only versions matching
-the given version constraints (semver https://github.com/Masterminds/semver) are selected. With <code>--latest</code> only
+If the option <code>--constraints</code> is given, and no version is specified
+for a component, only versions matching the given version constraints
+(semver https://github.com/Masterminds/semver) are selected.
+With <code>--latest</code> only
 the latest matching versions will be selected.
 
 
@@ -45,7 +46,7 @@ relative to the specified repository using the syntax
     <pre>&lt;component>[:&lt;version>]</pre>
 </center>
 
-If no <code>--repo</code> option is specified the given names are interpreted 
+If no <code>--repo</code> option is specified the given names are interpreted
 as located OCM component version references:
 
 <center>
@@ -68,17 +69,12 @@ The <code>--repo</code> option takes an OCM repository specification:
 For the *Common Transport Format* the types <code>directory</code>,
 <code>tar</code> or <code>tgz</code> is possible.
 
-Using the JSON variant any repository types supported by the 
+Using the JSON variant any repository types supported by the
 linked library can be used:
 
-Dedicated OCM repository types:
-  - <code>ComponentArchive</code>: v1
-
 OCI Repository types (using standard component repository to OCI mapping):
-  - <code>ArtifactSet</code>: v1
+
   - <code>CommonTransportFormat</code>: v1
-  - <code>DockerDaemon</code>: v1
-  - <code>Empty</code>: v1
   - <code>OCIRegistry</code>: v1
   - <code>oci</code>: v1
   - <code>ociRegistry</code>
@@ -116,17 +112,16 @@ The following modes are supported:
   - <code>wide</code>
   - <code>yaml</code>
 
-
 ### Examples
 
-```
-$ ocm get componentversion ghcr.io/mandelsoft/kubelink
-$ ocm get componentversion --repo OCIRegistry::ghcr.io mandelsoft/kubelink
+```bash
+$ ocm get componentversion ghcr.io/open-component-model/ocm//ocm.software/ocmcli:0.17.0
+$ ocm get componentversion --repo OCIRegistry::ghcr.io/open-component-model/ocm ocm.software/ocmcli:0.17.0
 ```
 
 ### SEE ALSO
 
-##### Parents
+#### Parents
 
 * [ocm get](ocm_get.md)	 &mdash; Get information about artifacts and components
 * [ocm](ocm.md)	 &mdash; Open Component Model command line client

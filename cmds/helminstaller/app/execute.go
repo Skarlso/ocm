@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package app
 
 import (
@@ -9,26 +5,27 @@ import (
 	"fmt"
 	"strings"
 
-	. "github.com/open-component-model/ocm/pkg/exception"
-	. "github.com/open-component-model/ocm/pkg/finalizer"
+	. "github.com/mandelsoft/goutils/exception"
+	. "github.com/mandelsoft/goutils/finalizer"
 
 	"github.com/mandelsoft/filepath/pkg/filepath"
+	"github.com/mandelsoft/goutils/errors"
 	"github.com/mandelsoft/vfs/pkg/projectionfs"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 
-	"github.com/open-component-model/ocm/cmds/helminstaller/app/driver"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/common/compression"
-	v1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/download"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/resourcetypes"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/utils"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/helm/loader"
-	"github.com/open-component-model/ocm/pkg/out"
-	"github.com/open-component-model/ocm/pkg/runtime"
-	"github.com/open-component-model/ocm/pkg/toi/support"
-	"github.com/open-component-model/ocm/pkg/utils/tarutils"
+	v1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	resourcetypes "ocm.software/ocm/api/ocm/extensions/artifacttypes"
+	"ocm.software/ocm/api/ocm/extensions/download"
+	utils "ocm.software/ocm/api/ocm/ocmutils"
+	"ocm.software/ocm/api/ocm/resourcerefs"
+	"ocm.software/ocm/api/ocm/tools/toi/support"
+	"ocm.software/ocm/api/tech/helm/loader"
+	"ocm.software/ocm/api/utils/compression"
+	common "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/api/utils/out"
+	"ocm.software/ocm/api/utils/runtime"
+	"ocm.software/ocm/api/utils/tarutils"
+	"ocm.software/ocm/cmds/helminstaller/app/driver"
 )
 
 func Merge(values ...map[string]interface{}) map[string]interface{} {
@@ -103,7 +100,7 @@ func (e *Execution) addSubCharts(finalize *Finalizer, subCharts map[string]v1.Re
 	e.outf("Loading %d sub charts into %s...\n", len(subCharts), charts)
 	for n, r := range subCharts {
 		e.outf("  Loading sub chart %q from resource %s@%s\n", n, r, common.VersionedElementKey(e.ComponentVersion))
-		acc, rcv := Must2f(R2(utils.ResolveResourceReference(e.ComponentVersion, r, nil)), "chart reference", r.String())
+		acc, rcv := Must2f(R2(resourcerefs.ResolveResourceReference(e.ComponentVersion, r, nil)), "chart reference", r.String())
 		loop.Close(rcv)
 
 		if acc.Meta().Type != resourcetypes.HELM_CHART {
@@ -162,7 +159,7 @@ func (e *Execution) Execute(cfg *Config, values map[string]interface{}, kubeconf
 	values = Merge(Must1(cfg.GetValues()), values)
 
 	e.outf("Loading helm chart from resource %s@%s\n", cfg.Chart, common.VersionedElementKey(e.ComponentVersion))
-	acc, rcv := Must2f(R2(utils.ResolveResourceReference(e.ComponentVersion, cfg.Chart, nil)), "chart reference", cfg.Chart.String())
+	acc, rcv := Must2f(R2(resourcerefs.ResolveResourceReference(e.ComponentVersion, cfg.Chart, nil)), "chart reference", cfg.Chart.String())
 	finalize.Close(rcv)
 
 	if acc.Meta().Type != resourcetypes.HELM_CHART {
@@ -193,7 +190,7 @@ func (e *Execution) Execute(cfg *Config, values map[string]interface{}, kubeconf
 	e.outf("Localizing helm chart...\n")
 	e.Logger.Debug("Localizing helm chart")
 	for i, v := range cfg.ImageMapping {
-		acc, rcv := Must2f(R2(utils.ResolveResourceReference(e.ComponentVersion, v.ResourceReference, nil)), "mapping", fmt.Sprintf("%d (%s)", i+1, &v.ResourceReference))
+		acc, rcv := Must2f(R2(resourcerefs.ResolveResourceReference(e.ComponentVersion, v.ResourceReference, nil)), "mapping", fmt.Sprintf("%d (%s)", i+1, &v.ResourceReference))
 		rcv.Close()
 		ref := Must1f(R1(utils.GetOCIArtifactRef(e.Context, acc)), "mapping %d: cannot resolve resource %s to an OCI Reference", i+1, v)
 		ix := strings.Index(ref, ":")
@@ -207,7 +204,7 @@ func (e *Execution) Execute(cfg *Config, values map[string]interface{}, kubeconf
 		tag := ref[ix+1:]
 		if v.Repository != "" {
 			e.Logger.Debug("substitute image repository", "ref", ref, "target", v.Repository)
-			Mustf(Set(values, v.Repository, repo), "mapping %d: assigning repositry to property %q", v.Repository)
+			Mustf(Set(values, v.Repository, repo), "mapping %d: assigning repository to property %q", v.Repository)
 		}
 		if v.Tag != "" {
 			e.Logger.Debug("substitute image tag", "ref", ref, "target", v.Tag)
@@ -219,7 +216,7 @@ func (e *Execution) Execute(cfg *Config, values map[string]interface{}, kubeconf
 		}
 	}
 
-	e.outf("Installing helm chart...\n")
+	e.outf("Installing helm chart [%s]...\n", e.Action)
 
 	ns := "default"
 	if cfg.Namespace != "" {

@@ -1,22 +1,22 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package get
 
 import (
 	"github.com/spf13/cobra"
 
-	credentials "github.com/open-component-model/ocm/cmds/ocm/commands/misccmds/credentials/get"
-	artifacts "github.com/open-component-model/ocm/cmds/ocm/commands/ocicmds/artifacts/get"
-	components "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/components/get"
-	plugins "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/plugins/get"
-	references "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/references/get"
-	resources "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/resources/get"
-	sources "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/sources/get"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
+	clictx "ocm.software/ocm/api/cli"
+	config "ocm.software/ocm/cmds/ocm/commands/misccmds/config/get"
+	credentials "ocm.software/ocm/cmds/ocm/commands/misccmds/credentials/get"
+	artifacts "ocm.software/ocm/cmds/ocm/commands/ocicmds/artifacts/get"
+	components "ocm.software/ocm/cmds/ocm/commands/ocmcmds/components/get"
+	plugins "ocm.software/ocm/cmds/ocm/commands/ocmcmds/plugins/get"
+	pubsub "ocm.software/ocm/cmds/ocm/commands/ocmcmds/pubsub/get"
+	references "ocm.software/ocm/cmds/ocm/commands/ocmcmds/references/get"
+	resources "ocm.software/ocm/cmds/ocm/commands/ocmcmds/resources/get"
+	routingslips "ocm.software/ocm/cmds/ocm/commands/ocmcmds/routingslips/get"
+	sources "ocm.software/ocm/cmds/ocm/commands/ocmcmds/sources/get"
+	verified "ocm.software/ocm/cmds/ocm/commands/ocmcmds/verified/get"
+	"ocm.software/ocm/cmds/ocm/commands/verbs"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 // NewCommand creates a new command.
@@ -31,5 +31,9 @@ func NewCommand(ctx clictx.Context) *cobra.Command {
 	cmd.AddCommand(sources.NewCommand(ctx))
 	cmd.AddCommand(credentials.NewCommand(ctx))
 	cmd.AddCommand(plugins.NewCommand(ctx))
+	cmd.AddCommand(routingslips.NewCommand(ctx))
+	cmd.AddCommand(config.NewCommand(ctx))
+	cmd.AddCommand(pubsub.NewCommand(ctx))
+	cmd.AddCommand(verified.NewCommand(ctx))
 	return cmd
 }

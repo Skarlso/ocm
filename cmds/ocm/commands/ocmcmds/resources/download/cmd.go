@@ -1,42 +1,31 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package download
 
 import (
-	"fmt"
-	"io"
-	"path"
 	"runtime"
-	"strings"
 
-	"github.com/mandelsoft/vfs/pkg/vfs"
+	"github.com/mandelsoft/goutils/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/common/options/closureoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/common/options/destoption"
-	ocmcommon "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/handlers/elemhdlr"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/downloaderoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/repooption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/versionconstraintsoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/names"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/resources/common"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/output"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	common2 "github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	v1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/consts"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/download"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/resourcetypes"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/out"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm"
+	v1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	resourcetypes "ocm.software/ocm/api/ocm/extensions/artifacttypes"
+	"ocm.software/ocm/api/ocm/extraid"
+	"ocm.software/ocm/cmds/ocm/commands/common/options/closureoption"
+	"ocm.software/ocm/cmds/ocm/commands/common/options/destoption"
+	ocmcommon "ocm.software/ocm/cmds/ocm/commands/ocmcmds/common"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/handlers/elemhdlr"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/downloaderoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/repooption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/storeoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/versionconstraintsoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/names"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/resources/common"
+	"ocm.software/ocm/cmds/ocm/commands/verbs"
+	"ocm.software/ocm/cmds/ocm/common/output"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 var (
@@ -57,13 +46,13 @@ type Command struct {
 // NewCommand creates a new resources command.
 func NewCommand(ctx clictx.Context, names ...string) *cobra.Command {
 	f := func(opts *output.Options) output.Output {
-		return &action{downloaders: download.For(ctx), opts: opts}
+		return NewAction(ctx, opts)
 	}
 	return utils.SetupCommand(&Command{BaseCommand: utils.NewBaseCommand(ctx,
 		versionconstraintsoption.New(),
 		repooption.New(),
 		downloaderoption.New(ctx.OCMContext()),
-		output.OutputOptions(output.NewOutputs(f), NewOptions(), closureoption.New("component reference"), lookupoption.New(), destoption.New()),
+		output.OutputOptions(output.NewOutputs(f), NewOptions(), closureoption.New("component reference"), lookupoption.New(), destoption.New(), storeoption.New("check-verified")),
 	)}, utils.Names(Names, names...)...)
 }
 
@@ -74,7 +63,7 @@ func (o *Command) ForName(name string) *cobra.Command {
 		Short: "download resources of a component version",
 		Long: `
 Download resources of a component version. Resources are specified
-by identities. An identity consists of 
+by identities. An identity consists of
 a name argument followed by optional <code>&lt;key>=&lt;value></code>
 arguments.
 
@@ -90,7 +79,7 @@ as follows:
 
 The resource files are named according to the resource identity in the
 component descriptor. If this identity is just the resource name, this name
-is ised. If additional identity attributes are required, this name is
+is used. If additional identity attributes are required, this name is
 append by a comma separated list of <code>&lt;name>=&lt;>value></code> pairs
 separated by a "-" from the plain name. This attribute list is alphabetical
 order:
@@ -123,8 +112,8 @@ func (o *Command) Complete(args []string) error {
 			}
 		}
 		for _, id := range o.Ids {
-			id[consts.ExecutableOperatingSystem] = runtime.GOOS
-			id[consts.ExecutableArchitecture] = runtime.GOARCH
+			id[extraid.ExecutableOperatingSystem] = runtime.GOOS
+			id[extraid.ExecutableArchitecture] = runtime.GOARCH
 		}
 	}
 	return err
@@ -138,11 +127,11 @@ func (o *Command) handlerOptions() []elemhdlr.Option {
 	return hopts
 }
 
-func (o *Command) Run() error {
+func (o *Command) Run() (err error) {
 	session := ocm.NewSession(nil)
-	defer session.Close()
+	defer errors.PropagateError(&err, session.Close)
 
-	err := o.ProcessOnOptions(ocmcommon.CompleteOptionsWithSession(o, session))
+	err = o.ProcessOnOptions(ocmcommon.CompleteOptionsWithSession(o, session))
 	if err != nil {
 		return err
 	}
@@ -158,6 +147,12 @@ func (o *Command) Run() error {
 		From(opts).UseHandlers = true
 	}
 
+	if storeoption.From(o).Store != nil {
+		if From(opts).UseHandlers {
+			return errors.Newf("verification for supported together with download handlers")
+		}
+	}
+
 	hdlr, err := common.NewTypeHandler(o.Context.OCM(), opts, repooption.From(o).Repository, session, []string{o.Comp}, o.handlerOptions()...)
 	if err != nil {
 		return err
@@ -168,130 +163,4 @@ func (o *Command) Run() error {
 	}
 
 	return utils.HandleOutputs(opts, hdlr, specs...)
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-type action struct {
-	downloaders download.Registry
-	data        elemhdlr.Objects
-	opts        *output.Options
-}
-
-func (d *action) Add(e interface{}) error {
-	d.data = append(d.data, e.(*elemhdlr.Object))
-	return nil
-}
-
-func (d *action) Close() error {
-	if len(d.data) == 0 {
-		out.Outf(d.opts.Context, "no resources selected\n")
-	}
-	return nil
-}
-
-func (d *action) Out() error {
-	list := errors.ErrListf("downloading resources")
-	dest := destoption.From(d.opts)
-	if len(d.data) == 1 {
-		if dest.Destination == "" {
-			_, _ = common.Elem(d.data[0]).Labels.GetValue("downloadName", &dest.Destination)
-		}
-		return d.Save(d.data[0], dest.Destination)
-	} else {
-		if dest.Destination == "-" {
-			return fmt.Errorf("standard output supported for single resource only.")
-		}
-		for _, e := range d.data {
-			f := dest.Destination
-			if f == "" {
-				f = "."
-			}
-			for _, p := range e.History {
-				f = path.Join(f, p.GetName(), p.GetVersion())
-			}
-			r := common.Elem(e)
-			n := ""
-			if ok, err := r.Labels.GetValue("downloadName", &n); !ok || err != nil {
-				n = r.Name
-			}
-			f = path.Join(f, n)
-			id := r.GetIdentity(e.Version.GetDescriptor().Resources)
-			delete(id, v1.SystemIdentityName)
-			if len(id) > 0 {
-				f += "-" + strings.ReplaceAll(id.String(), "\"", "")
-			}
-			err := d.Save(e, f)
-			if err != nil {
-				list.Add(err)
-				out.Outf(d.opts.Context, "%s failed: %s\n", f, err)
-			}
-		}
-	}
-	return list.Result()
-}
-
-func (d *action) Save(o *elemhdlr.Object, f string) error {
-	printer := common2.NewPrinter(d.opts.Context.StdOut())
-	dest := destoption.From(d.opts)
-	local := From(d.opts)
-	pathIn := true
-	r := common.Elem(o)
-	if f == "" {
-		pathIn = false
-	}
-	var tmp vfs.File
-	var err error
-	if f == "-" {
-		tmp, err = vfs.TempFile(dest.PathFilesystem, "", "download-*")
-		if err != nil {
-			return err
-		}
-		f = tmp.Name()
-		tmp.Close()
-		printer = common2.NewPrinter(nil)
-		defer dest.PathFilesystem.Remove(f)
-	}
-	id := r.GetIdentity(o.Version.GetDescriptor().Resources)
-	racc, err := o.Version.GetResource(id)
-	if err != nil {
-		return err
-	}
-	dir := path.Dir(f)
-	if dir != "" && dir != "." {
-		err = dest.PathFilesystem.MkdirAll(dir, 0o770)
-		if err != nil {
-			return err
-		}
-	}
-	var ok bool
-	var eff string
-	if local.UseHandlers {
-		ok, eff, err = d.downloaders.Download(printer, racc, f, dest.PathFilesystem)
-	} else {
-		ok, eff, err = d.downloaders.DownloadAsBlob(printer, racc, f, dest.PathFilesystem)
-	}
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return errors.Newf("no downloader configured for type %q", racc.Meta().GetType())
-	}
-	if tmp != nil {
-		if eff != f {
-			defer dest.PathFilesystem.Remove(eff)
-		}
-		file, err := dest.PathFilesystem.Open(eff)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-		_, err = io.Copy(d.opts.Context.StdOut(), file)
-		if err != nil {
-			return err
-		}
-	} else if eff != f && pathIn {
-		out.Outf(d.opts.Context, "output path %q changed to %q by downloader", f, eff)
-	}
-	return nil
 }

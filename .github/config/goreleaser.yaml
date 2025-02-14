@@ -1,0 +1,119 @@
+# goreleaser.yaml (this config) is responsible for our official releases.
+# However, latest builds (equivalent to nightlies based on the main branch), uses latest.yml
+version: 2
+
+release:
+  prerelease: auto
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - <<: &build_defaults
+      binary: ocm
+      main: ./cmds/ocm/main.go
+      ldflags:
+        - -s -w -X ocm.software/ocm/api/version.gitVersion={{.Version}} -X ocm.software/ocm/api/version.gitCommit={{.Commit}} -X ocm.software/ocm/api/version.buildDate={{.CommitDate}}
+      env:
+        - CGO_ENABLED=0
+    id: linux
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - 7
+  - <<: *build_defaults
+    id: darwin
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+  - <<: *build_defaults
+    id: windows
+    goos:
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - name_template: "{{ .Binary }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    id: nix
+    builds: [linux, darwin]
+    format: tar.gz
+    files:
+      - none*
+  - name_template: "{{ .Binary }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    id: windows
+    builds: [windows]
+    format: zip
+    files:
+      - none*
+  - name_template: "{{ .ProjectName }}-{{ .Version }}-ctf"
+    format: tgz
+    meta: true
+    files:
+    - src: gen/ctf
+      dst: .
+
+source:
+  enabled: true
+  name_template: '{{ .ProjectName }}-{{ .Version }}-source_code'
+
+sboms:
+  - id: source
+    artifacts: source
+    documents:
+      - "{{ .ProjectName }}-{{ .Version }}-sbom.spdx.json"
+
+signs:
+  - cmd: cosign
+    env:
+      - COSIGN_EXPERIMENTAL=1
+    certificate: '${artifact}.pem'
+    args:
+      - sign-blob
+      - '--output-certificate=${certificate}'
+      - '--output-signature=${signature}'
+      - '${artifact}'
+      - '--yes'
+    artifacts: checksum
+    output: true
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+nfpms:
+  - id: debian
+    package_name: ocm-cli
+    builds: [linux]
+    vendor: "Open Component Model"
+    homepage: "https://ocm.software/"
+    maintainer: "OCM Project <open-component-model@noreply.github.com>"
+    description: |
+      The OCM CLI is used to create and maintain component versions.
+      It can be used to easily embed OCM related actions in CICD processes.
+    license: "Apache-2.0"
+    formats:
+      - deb
+    bindir: "/usr/bin"
+    deb:
+      signature:
+        # PGP secret key file path (can also be ASCII-armored).
+        # Signing key passphrases comes from $NFPM_PASSPHRASE.
+        key_file: "{{ .Env.GPG_KEY_PATH }}"
+
+checksum:
+  name_template: '{{ .ArtifactName }}.{{ .Algorithm }}'
+  algorithm: sha256
+  # If true, will create one checksum file for each artifact.
+  split: true

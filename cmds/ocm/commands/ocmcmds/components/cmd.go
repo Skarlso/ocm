@@ -1,22 +1,20 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package components
 
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/components/add"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/components/download"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/components/get"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/components/hash"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/components/sign"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/components/transfer"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/components/verify"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/names"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/components/add"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/components/check"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/components/download"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/components/get"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/components/hash"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/components/list"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/components/sign"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/components/transfer"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/components/verify"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/names"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 var Names = names.Components
@@ -33,9 +31,11 @@ func NewCommand(ctx clictx.Context) *cobra.Command {
 func AddCommands(ctx clictx.Context, cmd *cobra.Command) {
 	cmd.AddCommand(add.NewCommand(ctx, add.Verb))
 	cmd.AddCommand(get.NewCommand(ctx, get.Verb))
+	cmd.AddCommand(list.NewCommand(ctx, list.Verb))
 	cmd.AddCommand(hash.NewCommand(ctx, hash.Verb))
 	cmd.AddCommand(sign.NewCommand(ctx, sign.Verb))
 	cmd.AddCommand(transfer.NewCommand(ctx, transfer.Verb))
 	cmd.AddCommand(verify.NewCommand(ctx, verify.Verb))
 	cmd.AddCommand(download.NewCommand(ctx, download.Verb))
+	cmd.AddCommand(check.NewCommand(ctx, check.Verb))
 }

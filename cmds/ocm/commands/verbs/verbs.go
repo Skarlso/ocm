@@ -1,11 +1,10 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package verbs
 
 const (
 	Get       = "get"
+	Set       = "set"
+	List      = "list"
+	Check     = "check"
 	Describe  = "describe"
 	Hash      = "hash"
 	Add       = "add"
@@ -18,5 +17,6 @@ const (
 	Verify    = "verify"
 	Clean     = "clean"
 	Install   = "install"
+	Uninstall = "uninstall"
 	Execute   = "execute"
 )

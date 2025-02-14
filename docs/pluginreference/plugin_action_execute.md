@@ -2,13 +2,13 @@
 
 ### Synopsis
 
-```
+```bash
 plugin action execute <spec> [<options>]
 ```
 
 ### Options
 
-```
+```text
   -C, --credential <name>=<value>   dedicated credential value (default [])
   -c, --credentials YAML            credentials
   -h, --help                        help for execute
@@ -16,11 +16,10 @@ plugin action execute <spec> [<options>]
 
 ### Description
 
-
 This command executes an action.
 
-This action has to provide an execution result as JSON string on *stdout*. It has the 
-following fields: 
+This action has to provide an execution result as JSON string on *stdout*. It has the
+following fields:
 
 - **<code>name</code>** *string*
 
@@ -33,10 +32,9 @@ following fields:
 
 Additional fields depend on the kind of action.
 
-
 ### SEE ALSO
 
-##### Parents
+#### Parents
 
 * [plugin action](plugin_action.md)	 &mdash; action operations
 * [plugin](plugin.md)	 &mdash; OCM Plugin

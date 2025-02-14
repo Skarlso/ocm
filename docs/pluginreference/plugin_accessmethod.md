@@ -2,24 +2,22 @@
 
 ### Synopsis
 
-```
+```bash
 plugin accessmethod [<options>] <sub command> ...
 ```
 
 ### Options
 
-```
+```text
   -h, --help   help for accessmethod
 ```
 
 ### Description
-
 This command group provides all commands used to implement an access method
 described by an access method descriptor ([plugin descriptor](plugin_descriptor.md).
-
 ### SEE ALSO
 
-##### Parents
+#### Parents
 
 * [plugin](plugin.md)	 &mdash; OCM Plugin
 
@@ -28,7 +26,6 @@ described by an access method descriptor ([plugin descriptor](plugin_descriptor.
 
 * [plugin accessmethod <b>compose</b>](plugin_accessmethod_compose.md)	 &mdash; compose access specification from options and base specification
 * [plugin accessmethod <b>get</b>](plugin_accessmethod_get.md)	 &mdash; get blob
-* [plugin accessmethod <b>identity</b>](plugin_accessmethod_identity.md)	 &mdash; get blob identity
 * [plugin accessmethod <b>validate</b>](plugin_accessmethod_validate.md)	 &mdash; validate access specification
 
 

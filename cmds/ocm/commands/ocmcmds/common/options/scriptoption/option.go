@@ -1,17 +1,16 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package scriptoption
 
 import (
+	"github.com/mandelsoft/goutils/errors"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/pflag"
 
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/options"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	cfgcpi "github.com/open-component-model/ocm/pkg/contexts/config/cpi"
-	"github.com/open-component-model/ocm/pkg/errors"
+	clictx "ocm.software/ocm/api/cli"
+	cfgcpi "ocm.software/ocm/api/config/cpi"
+	"ocm.software/ocm/api/ocm/tools/transfer/transferhandler"
+	"ocm.software/ocm/api/ocm/tools/transfer/transferhandler/spiff"
+	"ocm.software/ocm/api/utils"
+	"ocm.software/ocm/cmds/ocm/common/options"
 )
 
 func From(o options.OptionSetProvider) *Option {
@@ -25,13 +24,17 @@ func New() *Option {
 }
 
 type Option struct {
+	spiff.TransferOptionsCreator
 	ScriptFile string
 	Script     string
 	ScriptData []byte
 	FileSystem vfs.FileSystem
 }
 
-var _ options.OptionWithCLIContextCompleter = (*Option)(nil)
+var (
+	_ options.OptionWithCLIContextCompleter = (*Option)(nil)
+	_ transferhandler.TransferOption        = (*Option)(nil)
+)
 
 func (o *Option) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&o.ScriptFile, "scriptFile", "s", "", "filename of transfer handler script")
@@ -56,7 +59,7 @@ func (o *Option) Configure(ctx clictx.Context) error {
 		}
 	}
 	if o.ScriptFile != "" {
-		data, err := vfs.ReadFile(ctx.FileSystem(), o.ScriptFile)
+		data, err := utils.ReadFile(o.ScriptFile, ctx.FileSystem())
 		if err != nil {
 			return errors.Wrapf(err, "invalid transfer script file")
 		}
@@ -97,4 +100,14 @@ If no script option is given and the cli config defines a script <code>default</
 this one is used.
 `
 	return s
+}
+
+func (o *Option) ApplyTransferOption(opts transferhandler.TransferOptions) error {
+	var err error
+	if o.ScriptData != nil {
+		err = spiff.Script(o.ScriptData).ApplyTransferOption(opts)
+	} else if o.ScriptFile != "" {
+		err = spiff.ScriptByFile(o.ScriptFile, o.FileSystem).ApplyTransferOption(opts)
+	}
+	return err
 }

@@ -1,21 +1,18 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package add
 
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs/srcs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/names"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/template"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm"
+	"ocm.software/ocm/api/utils/template"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs/srcs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/names"
+	"ocm.software/ocm/cmds/ocm/commands/verbs"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 var (
@@ -31,7 +28,7 @@ type Command struct {
 func NewCommand(ctx clictx.Context, names ...string) *cobra.Command {
 	return utils.SetupCommand(
 		&Command{
-			common.NewResourceAdderCommand(ctx, srcs.ResourceSpecHandler{}, common.NewContentResourceSpecificationProvider(ctx, "source", nil, "")),
+			common.NewResourceAdderCommand(ctx, srcs.New().WithCLIOptions(&addhdlrs.Options{}), common.NewContentResourceSpecificationProvider(ctx, "source", nil, "")),
 		},
 		utils.Names(Names, names...)...,
 	)
@@ -45,12 +42,14 @@ func (o *Command) ForName(name string) *cobra.Command {
 		Example: `
 $ ocm add sources --file path/to/cafile sources.yaml
 `,
+		Annotations: map[string]string{"ExampleCodeStyle": "bash"},
 	}
 }
 
 func (o *Command) Long() string {
 	return `
-Add source information specified in a resource file to a component version.
+Add information about the sources, e.g. commits in a Github repository,
+that have been used to create the resources specified in a resource file to a component version.
 So far only component archives are supported as target.
 
 This command accepts source specification files describing the sources
@@ -67,7 +66,9 @@ The description file might contain:
 
 ` + o.Adder.Description() + (&template.Options{}).Usage() +
 		inputs.Usage(inputs.DefaultInputTypeScheme) +
-		ocm.AccessUsage(o.OCMContext().AccessMethods(), true)
+		ocm.AccessUsage(o.OCMContext().AccessMethods(), true) + `
+
+` + (&addhdlrs.Options{}).Description()
 }
 
 func (o *Command) Run() error {

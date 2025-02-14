@@ -1,19 +1,16 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package add
 
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs/refs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/names"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/template"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/utils/template"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs/refs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/names"
+	"ocm.software/ocm/cmds/ocm/commands/verbs"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 var (
@@ -29,7 +26,7 @@ type Command struct {
 func NewCommand(ctx clictx.Context, names ...string) *cobra.Command {
 	return utils.SetupCommand(
 		&Command{
-			common.NewResourceAdderCommand(ctx, refs.ResourceSpecHandler{}, NewReferenceSpecificatonProvider()),
+			common.NewResourceAdderCommand(ctx, refs.New().WithCLIOptions(&addhdlrs.Options{}), NewReferenceSpecificatonProvider()),
 		},
 		utils.Names(Names, names...)...,
 	)
@@ -53,7 +50,9 @@ The description file might contain:
 - a list of references under the key <code>references</code>
 - a list of yaml documents with a single reference or reference list
 
-` + o.Adder.Description() + (&template.Options{}).Usage(),
+` + o.Adder.Description() + (&template.Options{}).Usage() + `
+
+` + (&addhdlrs.Options{}).Description(),
 		Example: `
 Add a reference directly by options
 <pre>

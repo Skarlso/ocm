@@ -1,16 +1,12 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
-package bootstapping
+package bootstrapping
 
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/resourcetypes"
-	"github.com/open-component-model/ocm/pkg/mime"
-	"github.com/open-component-model/ocm/pkg/toi"
+	clictx "ocm.software/ocm/api/cli"
+	resourcetypes "ocm.software/ocm/api/ocm/extensions/artifacttypes"
+	"ocm.software/ocm/api/ocm/tools/toi"
+	"ocm.software/ocm/api/utils/mime"
 )
 
 func New(ctx clictx.Context, name string) *cobra.Command {
@@ -63,9 +59,10 @@ additionalResources:
     resource:
       name: config-file
 `,
+		Annotations: map[string]string{"ExampleCodeStyle": "yaml"},
 		Long: `
-TOI is a small toolset on top of the Open Component Model. It provides
-a possibility to run images taken from a component version with user
+Tiny OCM Installer (TOI) is a small toolset on top of the Open Component Model.
+It provides a possibility to run images taken from a component version with user
 configuration and feed them with the content of this component version.
 It is some basic mechanism, which can be used to execute simple installation
 steps based on content described by the Open Component Model
@@ -162,7 +159,7 @@ It has the following format:
   - **<code>configFile</code>**: an example template for a parameter file
   - **<code>credentialsFile</code>**: an example template for a credentials file
 
-  Those templates can be downloaded with <CMD>ocm bootstrap config</CMD>.
+  Those templates can be downloaded with <CMD>ocm bootstrap configuration</CMD>.
 
 #### *ExecutorSpecification*
 
@@ -175,7 +172,7 @@ to executors. It uses the following fields:
   the executor will be used for all actions. The first matching executor entry
   will be used to execute an action by the bootstrap command
 
-- **<code>resourceRef</code>** *[]ResourceReference*
+- **<code>resourceRef</code>** *ResourceReference*
 
   An OCM resource reference describing a component version resource relative to
   the component version containing the package resource.
@@ -261,7 +258,7 @@ defines additional identity attributes, the complete set must be specified.
 
 An optional <code>parameterMapping</code> in the executor section
 can be used to process the global package user-specified parameters
-to provide specifc values expected by the executor.
+to provide specific values expected by the executor.
 
 This is done by a _spiff_ template. Here special functions
 are provided to access specific content:
@@ -294,7 +291,7 @@ An executor is typically able to handle a complete class of installations.
 It describes a dedicated installation mechanism, but not a dedicated
 installation source. Although, there might be specialized images
 for dedicated installation sources, in general the idea is to provide
-more general executors, for example an helmexecutor, which is able to
+more general executors, for example an helm executor, which is able to
 handle any helm chart, not just a dedicated helm deployment.
 
 Because of this, there is a clear separation between an installation specific
@@ -306,7 +303,7 @@ The task of the package is to represent a dedicated deployment source. As such
 it has to provide information to tell the executor what to install, while
 the user configuration is used to describe the instance specific settings.
 
-Back to the example of a helminstaller executor, the executor config contained
+Back to the example of a helm installer executor, the executor config contained
 in the package resource describes the helm chart, which should be installed
 and the way how the user input is mapped to chart values. Here, also the
 localizations are described in an executor specific way.

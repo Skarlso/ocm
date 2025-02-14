@@ -1,0 +1,64 @@
+name: "Flake.nix vendorHash updater"
+on:
+  push:
+    branches: 
+    - main
+    paths:
+    - go.mod
+    - go.sum
+
+jobs:
+  updateVendorHash:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v2
+        with: # OCMBot
+          app_id: ${{ secrets.OCMBOT_APP_ID }}
+          private_key: ${{ secrets.OCMBOT_PRIV_KEY }}
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v16
+      - name: Update ocm vendor hash
+        run: nix run .#nixpkgs.nix-update -- --flake --version=skip ocm
+      - name: Check diff and create action summary
+        id: diff
+        run: |
+          diff=$(git diff)
+          if [[ -z "$diff" ]]; then
+            echo "Everything is tidy."
+            exit 0
+          else
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          fi
+          cat << EOF >> "${GITHUB_STEP_SUMMARY}"
+          Updates the vendorHash in \`flake.nix\`
+          \`\`\`bash
+          nix run .#nixpkgs.nix-update -- --flake --version=skip ocm
+          \`\`\`
+          produced:
+          \`\`\`diff
+          ${diff}
+          \`\`\`
+          EOF
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
+          title: "chore: update 'flake.nix'"
+          commit-message: "[github-actions] auto update vendor hash"
+          branch: nix/flake
+          delete-branch: true
+          sign-commits: true
+          labels: |
+            kind/skip-release-notes
+            kind/chore
+          body: |
+            Update OCM CLI vendor hash (see: .github/workflows/flake_vendorhash.yaml)

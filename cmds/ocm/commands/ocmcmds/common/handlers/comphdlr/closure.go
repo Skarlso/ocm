@@ -1,25 +1,22 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package comphdlr
 
 import (
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/output"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/out"
+	"github.com/mandelsoft/goutils/errors"
+
+	"ocm.software/ocm/api/ocm"
+	common "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/api/utils/out"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
+	"ocm.software/ocm/cmds/ocm/common/output"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 
 func ClosureExplode(opts *output.Options, e interface{}) []interface{} {
-	return traverse(common.History{}, e.(*Object), opts.Context, lookupoption.From(opts))
+	return traverse(common.History{}, e.(*Object), opts.Context, opts.Session, lookupoption.From(opts))
 }
 
-func traverse(hist common.History, o *Object, octx out.Context, lookup ocm.ComponentVersionResolver) []interface{} {
+func traverse(hist common.History, o *Object, octx out.Context, sess ocm.Session, lookup ocm.ComponentVersionResolver) []interface{} {
 	key := common.VersionedElementKey(o.ComponentVersion)
 	if err := hist.Add(ocm.KIND_COMPONENTVERSION, key); err != nil {
 		return nil
@@ -34,7 +31,7 @@ func traverse(hist common.History, o *Object, octx out.Context, lookup ocm.Compo
 	for _, ref := range refs {
 		key := ocm.ComponentRefKey(&ref)
 		if found[key] {
-			continue // skip same ref wit different attributes for recursion
+			continue // skip same ref with different attributes for recursion
 		}
 		found[key] = true
 		vers := ref.Version
@@ -72,7 +69,10 @@ func traverse(hist common.History, o *Object, octx out.Context, lookup ocm.Compo
 		if nested == nil {
 			result = append(result, obj)
 		} else {
-			result = append(result, traverse(hist, obj, octx, lookup)...)
+			if sess != nil {
+				sess.AddCloser(nested)
+			}
+			result = append(result, traverse(hist, obj, octx, sess, lookup)...)
 		}
 	}
 	return result

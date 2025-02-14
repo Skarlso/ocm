@@ -1,12 +1,8 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package spiff
 
 import (
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs/types/file"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs/types/file"
 )
 
 const TYPE = "spiff"
@@ -27,7 +23,7 @@ func usage() string {
   This OPTIONAL property describes a list of spiff libraries to include in template
   processing.
 
-The variable settigs from the command line are available as binding, also. They are provided under the node
+The variable settings from the command line are available as binding, also. They are provided under the node
 <code>values</code>.
 `
 }

@@ -1,25 +1,22 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package comphdlr
 
 import (
 	"fmt"
 	"os"
+	"sort"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/mandelsoft/goutils/errors"
 
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/output"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/tree"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc"
-	metav1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/semverutils"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm"
+	"ocm.software/ocm/api/ocm/compdesc"
+	metav1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	common "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/api/utils/semverutils"
+	"ocm.software/ocm/cmds/ocm/common/output"
+	"ocm.software/ocm/cmds/ocm/common/tree"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 func Elem(e interface{}) ocm.ComponentVersionAccess {
@@ -117,6 +114,7 @@ func (h *TypeHandler) all(repo ocm.Repository) ([]output.Object, error) {
 		return nil, err
 	}
 	var result []output.Object
+	sort.Strings(list)
 	for _, l := range list {
 		part, err := h.get(repo, utils.StringSpec(l))
 		if err != nil {
@@ -131,11 +129,14 @@ func (h *TypeHandler) Get(elemspec utils.ElemSpec) ([]output.Object, error) {
 	return h.get(h.repobase, elemspec)
 }
 
-func (h *TypeHandler) filterVersions(vers []string) []string {
+func (h *TypeHandler) filterVersions(vers []string) ([]string, error) {
 	if len(h.constraints) == 0 && !h.latest {
-		return vers
+		return vers, nil
 	}
-	versions, _ := semverutils.MatchVersionStrings(vers, h.constraints...)
+	versions, err := semverutils.MatchVersionStrings(vers, h.constraints...)
+	if err != nil {
+		return nil, fmt.Errorf("invalid constraints: %w", err)
+	}
 	if h.latest && len(versions) > 1 {
 		versions = versions[len(versions)-1:]
 	}
@@ -143,7 +144,7 @@ func (h *TypeHandler) filterVersions(vers []string) []string {
 	for _, v := range versions {
 		vers = append(vers, v.Original())
 	}
-	return vers
+	return vers, nil
 }
 
 func (h *TypeHandler) get(repo ocm.Repository, elemspec utils.ElemSpec) ([]output.Object, error) {
@@ -156,6 +157,7 @@ func (h *TypeHandler) get(repo ocm.Repository, elemspec utils.ElemSpec) ([]outpu
 	if repo == nil {
 		evaluated, err := h.session.EvaluateComponentRef(h.octx.Context(), name)
 		if err != nil {
+			evaluated = nil
 			if h.resolver != nil {
 				comp, err := ocm.ParseComp(name)
 				if err != nil {
@@ -222,13 +224,19 @@ func (h *TypeHandler) get(repo ocm.Repository, elemspec utils.ElemSpec) ([]outpu
 		})
 	} else {
 		if component == nil {
+			if repo == nil {
+				return nil, errors.Wrapf(err, "%s: invalid component version reference", name)
+			}
 			return h.all(repo)
 		} else {
 			versions, err := component.ListVersions()
 			if err != nil {
 				return nil, err
 			}
-			versions = h.filterVersions(versions)
+			versions, err = h.filterVersions(versions)
+			if err != nil {
+				return nil, err
+			}
 
 			for _, vers := range versions {
 				v, err := h.session.GetComponentVersion(component, vers)

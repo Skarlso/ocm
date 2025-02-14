@@ -2,30 +2,30 @@
 
 ### Synopsis
 
-```
+```bash
 plugin <subcommand> <options> <args>
 ```
 
 ### Options
 
-```
-  -c, --config YAML   plugin configuration
-  -h, --help          help for plugin
+```text
+  -c, --config YAML       plugin configuration
+  -h, --help              help for plugin
+      --log-config YAML   ocm logging configuration
 ```
 
 ### Description
-
 
 The OCM library has several extension points, which can be used by a registration
 mechanism to add further variants, like repository types, backend technologies,
 access methods, blob downloaders and uploaders.
 
 This requires Go coding, which is feasible for additional standard
-implementations. Nevertheless, it is useful to provide a more dynamic 
+implementations. Nevertheless, it is useful to provide a more dynamic
 way to enrich the functionality of the library and the OCM command line
 tool.
 
-This can be achieved by the experimental *plugin* concept. It allows 
+This can be achieved by the experimental *plugin* concept. It allows
 to implement functionality in separate executables (the plugins) and
 register them for any main program based on this library.
 
@@ -48,9 +48,8 @@ Errors have to be reported on *stderr* as JSON document with the fields:
   The error message provided by a command.
 
 Any plugin, regardless of its functionality has to provide an [plugin info](plugin_info.md),
-which prints JSON document containing a plugin descriptor that describes the 
-apabilities of the plugin.
-
+which prints JSON document containing a plugin descriptor that describes the
+capabilities of the plugin.
 
 ### SEE ALSO
 
@@ -64,9 +63,12 @@ apabilities of the plugin.
 * [plugin <b>download</b>](plugin_download.md)	 &mdash; download blob into filesystem
 * [plugin <b>info</b>](plugin_info.md)	 &mdash; show plugin descriptor
 * [plugin <b>upload</b>](plugin_upload.md)	 &mdash; upload specific operations
+* [plugin <b>valuemergehandler</b>](plugin_valuemergehandler.md)	 &mdash; value merge handler operations
+* [plugin <b>valueset</b>](plugin_valueset.md)	 &mdash; valueset operations
 
 
 
 ##### Additional Help Topics
 
+* [plugin <b>command</b>](plugin_command.md)	 &mdash; CLI command extensions
 * [plugin <b>descriptor</b>](plugin_descriptor.md)	 &mdash; Plugin Descriptor Format Description

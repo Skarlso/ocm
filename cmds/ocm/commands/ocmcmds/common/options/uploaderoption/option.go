@@ -1,15 +1,13 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package uploaderoption
 
 import (
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/optutils"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/options"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/blobhandler"
-	"github.com/open-component-model/ocm/pkg/listformat"
+	"sort"
+
+	"ocm.software/ocm/api/ocm"
+	"ocm.software/ocm/api/ocm/extensions/blobhandler"
+	"ocm.software/ocm/api/utils/listformat"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/optutils"
+	"ocm.software/ocm/cmds/ocm/common/options"
 )
 
 type Registration = optutils.Registration
@@ -31,7 +29,7 @@ type Option struct {
 func (o *Option) Register(ctx ocm.ContextProvider) error {
 	for _, s := range o.Registrations {
 		err := blobhandler.RegisterHandlerByName(ctx.OCMContext(), s.Name, s.Config,
-			blobhandler.ForArtifactType(s.ArtifactType), blobhandler.ForMimeType(s.MediaType))
+			blobhandler.ForArtifactType(s.ArtifactType), blobhandler.ForMimeType(s.MediaType), blobhandler.WithPrio(s.GetPriority(blobhandler.DEFAULT_BLOBHANDLER_PRIO*3)))
 		if err != nil {
 			return err
 		}
@@ -41,6 +39,7 @@ func (o *Option) Register(ctx ocm.ContextProvider) error {
 
 func Usage(ctx ocm.Context) string {
 	list := blobhandler.For(ctx).GetHandlers(ctx)
+	sort.Sort(list)
 	return listformat.FormatListElements("", list) + `
 
 See <CMD>ocm ocm-uploadhandlers</CMD> for further details on using

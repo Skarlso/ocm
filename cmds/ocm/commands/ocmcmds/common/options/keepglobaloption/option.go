@@ -1,15 +1,11 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package keepglobaloption
 
 import (
 	"github.com/spf13/pflag"
 
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/options"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/transfer/transferhandler"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/transfer/transferhandler/standard"
+	"ocm.software/ocm/api/ocm/tools/transfer/transferhandler"
+	"ocm.software/ocm/api/ocm/tools/transfer/transferhandler/standard"
+	"ocm.software/ocm/cmds/ocm/common/options"
 )
 
 func From(o options.OptionSetProvider) *Option {
@@ -23,6 +19,7 @@ func New() *Option {
 }
 
 type Option struct {
+	standard.TransferOptionsCreator
 	KeepGlobalAccess bool
 }
 
@@ -34,7 +31,7 @@ func (o *Option) AddFlags(fs *pflag.FlagSet) {
 
 func (o *Option) Usage() string {
 	s := `
-It the option <code>--keep-global-access</code> is given, all localized referential 
+If the option <code>--keep-global-access</code> is given, all localized referential 
 resources will preserve their original global access information.
 This behaviour can be further influenced by specifying a transfer script
 with the <code>script</code> option family.

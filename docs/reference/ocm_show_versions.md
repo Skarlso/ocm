@@ -2,19 +2,19 @@
 
 ### Synopsis
 
-```
+```bash
 ocm show versions [<options>] <component> {<version pattern>}
 ```
 
-##### Aliases
+#### Aliases
 
-```
+```text
 versions, vers, v
 ```
 
 ### Options
 
-```
+```text
   -h, --help          help for versions
   -l, --latest        show only latest version
       --repo string   repository name or spec
@@ -22,7 +22,6 @@ versions, vers, v
 ```
 
 ### Description
-
 
 Match versions of a component against some patterns.
 
@@ -34,7 +33,7 @@ relative to the specified repository using the syntax
     <pre>&lt;component>[:&lt;version>]</pre>
 </center>
 
-If no <code>--repo</code> option is specified the given names are interpreted 
+If no <code>--repo</code> option is specified the given names are interpreted
 as located OCM component version references:
 
 <center>
@@ -57,31 +56,25 @@ The <code>--repo</code> option takes an OCM repository specification:
 For the *Common Transport Format* the types <code>directory</code>,
 <code>tar</code> or <code>tgz</code> is possible.
 
-Using the JSON variant any repository types supported by the 
+Using the JSON variant any repository types supported by the
 linked library can be used:
 
-Dedicated OCM repository types:
-  - <code>ComponentArchive</code>: v1
-
 OCI Repository types (using standard component repository to OCI mapping):
-  - <code>ArtifactSet</code>: v1
+
   - <code>CommonTransportFormat</code>: v1
-  - <code>DockerDaemon</code>: v1
-  - <code>Empty</code>: v1
   - <code>OCIRegistry</code>: v1
   - <code>oci</code>: v1
   - <code>ociRegistry</code>
 
-
 ### Examples
 
-```
+```bash
 $ ocm show versions ghcr.io/mandelsoft/cnudie//github.com/mandelsoft/playground
 ```
 
 ### SEE ALSO
 
-##### Parents
+#### Parents
 
 * [ocm show](ocm_show.md)	 &mdash; Show tags or versions
 * [ocm](ocm.md)	 &mdash; Open Component Model command line client

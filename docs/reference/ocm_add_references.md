@@ -2,24 +2,26 @@
 
 ### Synopsis
 
-```
+```bash
 ocm add references [<options>] [<target>] {<referencefile> | <var>=<value>}
 ```
 
-##### Aliases
+#### Aliases
 
-```
+```text
 references, reference, refs
 ```
 
 ### Options
 
-```
+```text
       --addenv                 access environment for templating
       --dry-run                evaluate and print reference specifications
   -F, --file string            target file/directory (default "component-archive")
   -h, --help                   help for references
   -O, --output string          output file for dry-run
+  -P, --preserve-signature     preserve existing signatures
+  -R, --replace                replace existing elements
   -s, --settings stringArray   settings file with variable settings (yaml)
       --templater string       templater to use (go, none, spiff, subst) (default "subst")
 ```
@@ -27,7 +29,7 @@ references, reference, refs
 
 #### Reference Meta Data Options
 
-```
+```text
       --component string       component name
       --extra <name>=<value>   reference extra identity (default [])
       --label <name>=<YAML>    reference label (leading * indicates signature relevant, optional version separated by @)
@@ -37,7 +39,6 @@ references, reference, refs
 ```
 
 ### Description
-
 
 Add aggregation information specified in a reference file to a component version.
 So far only component archives are supported as target.
@@ -60,10 +61,10 @@ options <code>--name</code> and <code>--version</code>. With the option <code>--
 it is possible to add extra identity attributes. Explicitly specified options
 override values specified by the <code>--reference</code> option.
 (Note: Go templates are not supported for YAML-based option values. Besides
-this restriction, the finally composed element description is still processd
-by the selected templater.) 
+this restriction, the finally composed element description is still processed
+by the selected template engine.)
 
-The component name can be specified with the option <code>--component</code>. 
+The component name can be specified with the option <code>--component</code>.
 Therefore, basic references not requiring any additional labels or extra
 identities can just be specified by those simple value options without the need
 for the YAML option.
@@ -72,7 +73,7 @@ All yaml/json defined resources can be templated.
 Variables are specified as regular arguments following the syntax <code>&lt;name>=&lt;value></code>.
 Additionally settings can be specified by a yaml file using the <code>--settings <file></code>
 option. With the option <code>--addenv</code> environment variables are added to the binding.
-Values are overwritten in the order environment, settings file, command line settings. 
+Values are overwritten in the order environment, settings file, command line settings.
 
 Note: Variable names are case-sensitive.
 
@@ -88,7 +89,7 @@ There are several templaters that can be selected by the <code>--templater</code
     key:
       subkey: "abc {{.MY_VAL}}"
   </pre>
-  
+
 - <code>none</code> do not do any substitution.
 
 - <code>spiff</code> [spiff templating](https://github.com/mandelsoft/spiff).
@@ -98,7 +99,7 @@ There are several templaters that can be selected by the <code>--templater</code
     key:
       subkey: "abc (( values.MY_VAL ))"
   </pre>
-  
+
 - <code>subst</code> simple value substitution with the <code>drone/envsubst</code> templater.
 
   It supports string values, only. Complex settings will be json encoded.
@@ -106,14 +107,23 @@ There are several templaters that can be selected by the <code>--templater</code
     key:
       subkey: "abc ${MY_VAL}"
   </pre>
-  
+
+
+
+
+The <code>--replace</code> option allows users to specify whether adding an
+element with the same name and extra identity but different version as an
+existing element, append (false) or replace (true) the existing element.
+
+The <code>--preserve-signature</code> option prohibits changes of signature
+relevant elements.
 
 
 All yaml/json defined resources can be templated.
 Variables are specified as regular arguments following the syntax <code>&lt;name>=&lt;value></code>.
 Additionally settings can be specified by a yaml file using the <code>--settings <file></code>
 option. With the option <code>--addenv</code> environment variables are added to the binding.
-Values are overwritten in the order environment, settings file, command line settings. 
+Values are overwritten in the order environment, settings file, command line settings.
 
 Note: Variable names are case-sensitive.
 
@@ -129,7 +139,7 @@ There are several templaters that can be selected by the <code>--templater</code
     key:
       subkey: "abc {{.MY_VAL}}"
   </pre>
-  
+
 - <code>none</code> do not do any substitution.
 
 - <code>spiff</code> [spiff templating](https://github.com/mandelsoft/spiff).
@@ -139,7 +149,7 @@ There are several templaters that can be selected by the <code>--templater</code
     key:
       subkey: "abc (( values.MY_VAL ))"
   </pre>
-  
+
 - <code>subst</code> simple value substitution with the <code>drone/envsubst</code> templater.
 
   It supports string values, only. Complex settings will be json encoded.
@@ -147,7 +157,6 @@ There are several templaters that can be selected by the <code>--templater</code
     key:
       subkey: "abc ${MY_VAL}"
   </pre>
-  
 
 
 ### Examples
@@ -181,8 +190,8 @@ $ ocm add references  path/to/ca  references.yaml VERSION=1.0.0
 
 ### SEE ALSO
 
-##### Parents
+#### Parents
 
-* [ocm add](ocm_add.md)	 &mdash; Add resources or sources to a component archive
+* [ocm add](ocm_add.md)	 &mdash; Add elements to a component repository or component version
 * [ocm](ocm.md)	 &mdash; Open Component Model command line client
 

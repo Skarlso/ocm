@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package testutils
 
 import (
@@ -9,11 +5,12 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"github.com/mandelsoft/goutils/testutils"
 	"github.com/spf13/pflag"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
-	"github.com/open-component-model/ocm/pkg/cobrautils/flagsets"
-	"github.com/open-component-model/ocm/pkg/runtime"
+	"ocm.software/ocm/api/utils/cobrautils/flagsets"
+	"ocm.software/ocm/api/utils/runtime"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
 )
 
 type NameProvider interface {
@@ -52,5 +49,5 @@ func (t *InputTest) Check(expected interface{}) {
 	ExpectWithOffset(1, err).To(Succeed())
 	spec, err := t.Type.Decode(data, runtime.DefaultJSONEncoding)
 	ExpectWithOffset(1, err).To(Succeed())
-	ExpectWithOffset(1, spec).To(Equal(expected))
+	ExpectWithOffset(1, spec).To(testutils.DeepEqual(expected))
 }

@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package app
 
 import (
@@ -9,7 +5,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
+	clictx "ocm.software/ocm/api/cli"
 )
 
 // Prepare pre-prepares CLI options by evaluation the main options
@@ -64,7 +60,12 @@ func Prepare(ctx clictx.Context, args []string) (*CLIOptions, []string, error) {
 	if help {
 		args = append([]string{"--help"}, args...)
 	}
-	return opts, args, opts.Complete()
+
+	err = opts.Complete()
+	if err != nil {
+		return nil, nil, err
+	}
+	return opts, args, nil
 }
 
 func hasNoOptDefVal(name string, fs *pflag.FlagSet) bool {

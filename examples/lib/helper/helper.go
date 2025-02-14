@@ -1,23 +1,25 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package helper
 
 import (
+	"encoding/json"
 	"io/ioutil"
 
-	"github.com/open-component-model/ocm/pkg/contexts/credentials"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/runtime"
+	"github.com/mandelsoft/goutils/errors"
+
+	"ocm.software/ocm/api/credentials"
+	"ocm.software/ocm/api/tech/oci/identity"
+	"ocm.software/ocm/api/utils/runtime"
 )
 
 type Config struct {
-	Username   string `json:"username"`
-	Password   string `json:"password"`
-	Component  string `json:"component"`
-	Repository string `json:"repository"`
-	Version    string `json:"version"`
+	Username   string `json:"username,omitempty"`
+	Password   string `json:"password,omitempty"`
+	Component  string `json:"component,omitempty"`
+	Repository string `json:"repository,omitempty"`
+	Version    string `json:"version,omitempty"`
+
+	Target    json.RawMessage `json:"targetRepository,omitempty"`
+	OCMConfig string          `json:"ocmConfig,omitempty"`
 }
 
 func ReadConfig(path string) (*Config, error) {
@@ -35,8 +37,5 @@ func ReadConfig(path string) (*Config, error) {
 }
 
 func (c *Config) GetCredentials() credentials.Credentials {
-	return credentials.DirectCredentials{
-		credentials.ATTR_USERNAME: c.Username,
-		credentials.ATTR_PASSWORD: c.Password,
-	}
+	return identity.SimpleCredentials(c.Username, c.Password)
 }

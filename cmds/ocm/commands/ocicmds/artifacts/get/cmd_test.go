@@ -1,28 +1,26 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package get_test
 
 import (
 	"bytes"
 
+	. "github.com/mandelsoft/goutils/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/open-component-model/ocm/cmds/ocm/testhelper"
-	. "github.com/open-component-model/ocm/pkg/testutils"
+	. "ocm.software/ocm/cmds/ocm/testhelper"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocicmds/common/handlers/artifacthdlr"
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	"github.com/open-component-model/ocm/pkg/contexts/oci/artdesc"
-	"github.com/open-component-model/ocm/pkg/mime"
+	"ocm.software/ocm/api/oci/artdesc"
+	"ocm.software/ocm/api/utils/accessio"
+	"ocm.software/ocm/api/utils/mime"
+	"ocm.software/ocm/cmds/ocm/commands/ocicmds/common/handlers/artifacthdlr"
 )
 
-const ARCH = "/tmp/ctf"
-const VERSION1 = "v1"
-const VERSION2 = "v2"
-const NS1 = "mandelsoft/test"
-const NS2 = "mandelsoft/index"
+const (
+	ARCH     = "/tmp/ctf"
+	VERSION1 = "v1"
+	VERSION2 = "v2"
+	NS1      = "mandelsoft/test"
+	NS2      = "mandelsoft/index"
+)
 
 var _ = Describe("Test Environment", func() {
 	var env *TestEnv
@@ -86,7 +84,6 @@ var _ = Describe("Test Environment", func() {
 		})
 
 		It("get single artifacts", func() {
-
 			buf := bytes.NewBuffer(nil)
 			Expect(env.CatchOutput(buf).Execute("get", "artifact", ARCH+"//"+NS1+":"+VERSION1)).To(Succeed())
 			Expect(buf.String()).To(StringEqualTrimmedWithContext(
@@ -96,7 +93,6 @@ REGISTRY REPOSITORY      KIND     TAG DIGEST
 `))
 		})
 		It("get all artifacts in namespace", func() {
-
 			buf := bytes.NewBuffer(nil)
 			Expect(env.CatchOutput(buf).Execute("get", "artifact", ARCH+"//"+NS1)).To(Succeed())
 			Expect(buf.String()).To(StringEqualTrimmedWithContext(
@@ -267,6 +263,5 @@ NESTING       REGISTRY REPOSITORY       KIND     TAG                            
    └─         /tmp/ctf mandelsoft/index manifest -                                                                            sha256:60b245b3de64c43b18489e9c3cf177402f9bd18ab62f8cc6653e2fc2e3a5fc39
 `))
 		})
-
 	})
 })

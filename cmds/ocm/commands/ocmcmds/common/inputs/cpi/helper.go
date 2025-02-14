@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package cpi
 
 import (
@@ -10,17 +6,17 @@ import (
 	"io"
 	"os"
 
+	"github.com/mandelsoft/goutils/errors"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs/options"
-	"github.com/open-component-model/ocm/pkg/cobrautils/flagsets"
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/mime"
-	"github.com/open-component-model/ocm/pkg/runtime"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/utils/blobaccess"
+	"ocm.software/ocm/api/utils/cobrautils/flagsets"
+	"ocm.software/ocm/api/utils/mime"
+	"ocm.software/ocm/api/utils/runtime"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs/options"
 )
 
 type PathSpec struct {
@@ -67,7 +63,7 @@ func NewProcessSpec(mediatype string, compress bool) ProcessSpec {
 // Compress returns if the blob should be compressed using gzip.
 func (s *ProcessSpec) Compress() bool {
 	if s.CompressWithGzip == nil {
-		return mime.IsGZip(s.MediaType)
+		return false
 	}
 	return *s.CompressWithGzip
 }
@@ -80,12 +76,12 @@ func (s *ProcessSpec) SetMediaTypeIfNotDefined(mediaType string) {
 	s.MediaType = mediaType
 }
 
-func (s *ProcessSpec) ProcessBlob(ctx inputs.Context, acc accessio.DataAccess, fs vfs.FileSystem) (accessio.TemporaryBlobAccess, string, error) {
+func (s *ProcessSpec) ProcessBlob(ctx inputs.Context, acc blobaccess.DataAccess, fs vfs.FileSystem) (blobaccess.BlobAccess, string, error) {
 	if !s.Compress() {
 		if s.MediaType == "" {
 			s.MediaType = mime.MIME_OCTET
 		}
-		return accessio.TemporaryBlobAccessFor(accessio.BlobAccessForDataAccess(accessio.BLOB_UNKNOWN_DIGEST, accessio.BLOB_UNKNOWN_SIZE, s.MediaType, acc)), "", nil
+		return blobaccess.ForDataAccess(blobaccess.BLOB_UNKNOWN_DIGEST, blobaccess.BLOB_UNKNOWN_SIZE, s.MediaType, acc), "", nil
 	}
 
 	reader, err := acc.Reader()
@@ -94,7 +90,7 @@ func (s *ProcessSpec) ProcessBlob(ctx inputs.Context, acc accessio.DataAccess, f
 	}
 	defer reader.Close()
 
-	temp, err := accessio.NewTempFile(fs, "", "compressed*.gzip")
+	temp, err := blobaccess.NewTempFile("", "compressed*.gzip", fs)
 	if err != nil {
 		return nil, "", err
 	}
@@ -139,7 +135,7 @@ const ProcessSpecUsage = `
 ////////////////////////////////////////////////////////////////////////////////
 
 type MediaFileSpec struct {
-	// PathSpec holds the path that points to a file to be the base for the imput
+	// PathSpec holds the path that points to a file to be the base for the input
 	PathSpec    `json:",inline"`
 	ProcessSpec `json:",inline"`
 }
@@ -157,7 +153,7 @@ func (s *MediaFileSpec) ValidateFile(fldPath *field.Path, ctx clictx.Context, in
 		pathField := fldPath.Child("path")
 		fileInfo, filePath, err := inputs.FileInfo(ctx, s.Path, inputFilePath)
 		if err != nil {
-			allErrs = append(allErrs, field.Invalid(pathField, filePath, err.Error()))
+			allErrs = append(allErrs, field.Invalid(pathField, s.Path, err.Error()))
 		}
 		return fileInfo, filePath, allErrs
 	}

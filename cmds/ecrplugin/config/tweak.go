@@ -1,11 +1,7 @@
-// SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package config
 
 import (
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/plugin/ppi"
+	"ocm.software/ocm/api/ocm/plugin/ppi"
 )
 
 func TweakDescriptor(d ppi.Descriptor, cfg *Config) ppi.Descriptor {

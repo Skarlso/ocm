@@ -1,35 +1,33 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package transfer
 
 import (
+	"github.com/mandelsoft/goutils/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/common/options/closureoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/common/options/formatoption"
-	ocmcommon "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/omitaccesstypeoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/overwriteoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/rscbyvalueoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/scriptoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/srcbyvalueoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/stoponexistingoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/uploaderoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/names"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/common/accessobj"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/repositories/ctf"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/transfer"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/transfer/transferhandler"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/transfer/transferhandler/spiff"
-	"github.com/open-component-model/ocm/pkg/errors"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm"
+	"ocm.software/ocm/api/ocm/extensions/repositories/ctf"
+	"ocm.software/ocm/api/ocm/tools/transfer"
+	"ocm.software/ocm/api/ocm/tools/transfer/transferhandler"
+	"ocm.software/ocm/api/ocm/tools/transfer/transferhandler/spiff"
+	"ocm.software/ocm/api/utils/accessobj"
+	common "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/cmds/ocm/commands/common/options/closureoption"
+	"ocm.software/ocm/cmds/ocm/commands/common/options/formatoption"
+	ocmcommon "ocm.software/ocm/cmds/ocm/commands/ocmcmds/common"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/omitaccesstypeoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/overwriteoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/rscbyvalueoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/scriptoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/skipupdateoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/srcbyvalueoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/stoponexistingoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/uploaderoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/names"
+	"ocm.software/ocm/cmds/ocm/commands/verbs"
+	"ocm.software/ocm/cmds/ocm/common/options"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 var (
@@ -48,9 +46,10 @@ type Command struct {
 func NewCommand(ctx clictx.Context, names ...string) *cobra.Command {
 	return utils.SetupCommand(&Command{BaseCommand: utils.NewBaseCommand(ctx,
 		closureoption.New("component reference"),
+		skipupdateoption.New(),
+		overwriteoption.New(),
 		lookupoption.New(),
 		formatoption.New(),
-		overwriteoption.New(),
 		rscbyvalueoption.New(),
 		srcbyvalueoption.New(),
 		omitaccesstypeoption.New(),
@@ -71,6 +70,7 @@ Transfer content of a Common Transport Archive to the given target repository.
 		Example: `
 $ ocm transfer ctf ctf.tgz ghcr.io/mandelsoft/components
 `,
+		Annotations: map[string]string{"ExampleCodeStyle": "bash"},
 	}
 }
 
@@ -104,16 +104,10 @@ func (o *Command) Run() error {
 	}
 
 	thdlr, err := spiff.New(
-		closureoption.From(o),
-		lookupoption.From(o),
-		rscbyvalueoption.From(o),
-		srcbyvalueoption.From(o),
-		omitaccesstypeoption.From(o),
-		stoponexistingoption.From(o),
-		overwriteoption.From(o),
-		spiff.Script(scriptoption.From(o).ScriptData),
-		spiff.ScriptFilesystem(o.FileSystem()),
-	)
+		append(options.FindOptions[transferhandler.TransferOption](o),
+			spiff.Script(scriptoption.From(o).ScriptData),
+			spiff.ScriptFilesystem(o.FileSystem()),
+		)...)
 	if err != nil {
 		return err
 	}

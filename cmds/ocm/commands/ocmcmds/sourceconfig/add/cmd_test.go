@@ -1,25 +1,22 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package add_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/open-component-model/ocm/cmds/ocm/testhelper"
+	. "ocm.software/ocm/cmds/ocm/testhelper"
 
-	"github.com/open-component-model/ocm/pkg/testutils"
+	"github.com/mandelsoft/goutils/testutils"
 )
 
-const SPECFILE = "/tmp/sources.yaml"
-const VERSION = "v1"
+const (
+	SPECFILE = "/tmp/sources.yaml"
+	VERSION  = "v1"
+)
 
 func CheckSpec(env *TestEnv, spec string) {
 	data, err := env.ReadFile(SPECFILE)
 	ExpectWithOffset(1, err).To(Succeed())
 	ExpectWithOffset(1, string(data)).To(testutils.StringEqualTrimmedWithContext(spec))
-
 }
 
 var _ = Describe("Add sources", func() {

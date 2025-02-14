@@ -1,21 +1,15 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package optutils_test
 
 import (
-	"encoding/json"
-
+	. "github.com/mandelsoft/goutils/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/open-component-model/ocm/pkg/testutils"
 
 	"github.com/spf13/pflag"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/optutils"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/env"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/helper/env"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/optutils"
 )
 
 var _ = Describe("registration options", func() {
@@ -41,7 +35,7 @@ var _ = Describe("registration options", func() {
 			Name:         "plugin/name",
 			ArtifactType: "art",
 			MediaType:    "media",
-			Config:       json.RawMessage(`{"name":"Name"}`),
+			Config:       []byte(`{"name":"Name"}`),
 		}}))
 	})
 
@@ -53,7 +47,7 @@ var _ = Describe("registration options", func() {
 			Name:         "plugin/name",
 			ArtifactType: "art",
 			MediaType:    "",
-			Config:       json.RawMessage(`{"name":"Name"}`),
+			Config:       []byte(`{"name":"Name"}`),
 		}}))
 	})
 
@@ -65,7 +59,7 @@ var _ = Describe("registration options", func() {
 			Name:         "plugin/name",
 			ArtifactType: "",
 			MediaType:    "",
-			Config:       json.RawMessage(`{"name":"Name"}`),
+			Config:       []byte(`{"name":"Name"}`),
 		}}))
 	})
 
@@ -77,7 +71,7 @@ var _ = Describe("registration options", func() {
 			Name:         "plugin/name",
 			ArtifactType: "",
 			MediaType:    "",
-			Config:       json.RawMessage(`{"name":"Name"}`),
+			Config:       []byte(`{"name":"Name"}`),
 		}}))
 	})
 
@@ -89,7 +83,7 @@ var _ = Describe("registration options", func() {
 			Name:         "plugin/name",
 			ArtifactType: "",
 			MediaType:    "",
-			Config:       json.RawMessage(`"Name"`),
+			Config:       []byte(`"Name"`),
 		}}))
 	})
 
@@ -105,12 +99,12 @@ var _ = Describe("registration options", func() {
 			Name:         "plugin/name",
 			ArtifactType: "",
 			MediaType:    "",
-			Config:       json.RawMessage(`{"name":"Name"}`),
+			Config:       []byte(`{"name":"Name"}`),
 		}}))
 	})
 
 	It("fails", func() {
 		MustBeSuccessful(flags.Parse([]string{`--test`, `plugin/name:::=Name`}))
-		MustFailWithMessage(opt.Configure(ctx), "invalid test registration plugin/name::: must be of "+optutils.RegistrationFormat)
+		MustFailWithMessage(opt.Configure(ctx), "invalid test registration plugin/name::: (invalid priority) must be of "+optutils.RegistrationFormat)
 	})
 })

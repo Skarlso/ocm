@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package addhdlrs
 
 import (
@@ -10,20 +6,20 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/mandelsoft/goutils/errors"
+	"github.com/mandelsoft/goutils/general"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/template"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	common2 "github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/runtime"
-	utils2 "github.com/open-component-model/ocm/pkg/utils"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/utils"
+	"ocm.software/ocm/api/utils/errkind"
+	common2 "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/api/utils/runtime"
+	"ocm.software/ocm/api/utils/template"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
+	cliutils "ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 func ProcessDescriptions(ctx clictx.Context, printer common2.Printer, templ template.Options, h ElementSpecHandler, sources []ElementSource) ([]Element, inputs.Context, error) {
@@ -37,7 +33,11 @@ func ProcessDescriptions(ctx clictx.Context, printer common2.Printer, templ temp
 		}
 		elems = append(elems, tmp...)
 	}
-	ictx.Printf("found %d %s\n", len(elems), utils.Plural(h.Key(), len(elems)))
+	err := ValidateElementIdentities(h.Key(), elems)
+	if err != nil {
+		return nil, nil, err
+	}
+	ictx.Printf("found %d %s\n", len(elems), cliutils.Plural(h.Key(), len(elems)))
 	return elems, ictx, nil
 }
 
@@ -75,10 +75,10 @@ func DetermineElementsForSource(ctx clictx.Context, ictx inputs.Context, templ t
 		ictx := ictx.Section("processing document %d...", i)
 
 		var list []json.RawMessage
-		listkey := utils.Plural(h.Key(), 0)
+		listkey := cliutils.Plural(h.Key(), 0)
 		if reslist, ok := tmp[listkey]; ok {
 			if len(tmp) != 1 {
-				return nil, errors.Newf("invalid %s spec %d: either a list or a single spec possible for %s (found keys %s)", h.Key(), i, listkey, utils2.StringMapKeys(tmp))
+				return nil, errors.Newf("invalid %s spec %d: either a list or a single spec possible for %s (found keys %s)", h.Key(), i, listkey, utils.StringMapKeys(tmp))
 			}
 			l, ok := reslist.([]interface{})
 			if !ok {
@@ -93,6 +93,14 @@ func DetermineElementsForSource(ctx clictx.Context, ictx inputs.Context, templ t
 				list = append(list, data)
 			}
 		} else {
+			if entry, ok := tmp[h.Key()]; ok {
+				if m, ok := entry.(map[string]interface{}); ok {
+					if len(tmp) != 1 {
+						return nil, errors.Newf("invalid %s spec %d: either a list or a single spec possible for %s (found keys %s)", h.Key(), i, listkey, utils.StringMapKeys(tmp))
+					}
+					tmp = m
+				}
+			}
 			if len(tmp) == 0 {
 				return nil, errors.Newf("invalid %s spec %d: empty", h.Key(), i)
 			}
@@ -155,7 +163,7 @@ func DetermineElementForData(ctx clictx.Context, ictx inputs.Context, si SourceI
 		if err != nil {
 			return nil, err
 		}
-		if err = Validate(input, ictx, si.Origin()); err != nil {
+		if err = Validate(input, ictx, general.OptionalDefaulted(si.Origin(), input.SourceFile)); err != nil {
 			return nil, err
 		}
 	}
@@ -187,7 +195,7 @@ func DecodeElement(data []byte, h ElementSpecHandler) (ElementSpec, error) {
 		return nil, err
 	}
 	// delete(plainOrig, "input")
-	err = utils.CheckForUnknown(nil, plainOrig, plainAccepted).ToAggregate()
+	err = cliutils.CheckForUnknown(nil, plainOrig, plainAccepted).ToAggregate()
 	return result, err
 }
 
@@ -231,7 +239,7 @@ func CheckForUnknown(fldPath *field.Path, plainOrig, accepted interface{}) error
 	if err != nil {
 		return err
 	}
-	return utils.CheckForUnknown(fldPath, plainOrig, plainAccepted).ToAggregate()
+	return cliutils.CheckForUnknown(fldPath, plainOrig, plainAccepted).ToAggregate()
 }
 
 func Validate(r *ResourceInput, ctx inputs.Context, inputFilePath string) error {
@@ -251,12 +259,11 @@ func Validate(r *ResourceInput, ctx inputs.Context, inputFilePath string) error 
 				acc, err := r.Access.Evaluate(ctx.OCMContext())
 				if err != nil {
 					if errors.IsErrUnknown(err) {
-						//nolint: errorlint // No way I can untagle this.
-						err.(errors.Kinded).SetKind(errors.KIND_ACCESSMETHOD)
+						err.(errors.Kinded).SetKind(errkind.KIND_ACCESSMETHOD)
 					}
 					raw, _ := r.Access.GetRaw()
 					allErrs = append(allErrs, field.Invalid(fldPath.Child("access"), string(raw), err.Error()))
-				} else if acc.(ocm.AccessSpec).IsLocal(ctx.OCMContext()) {
+				} else if acc.IsLocal(ctx.OCMContext()) {
 					kind := runtime.GetKind(r.Access)
 					allErrs = append(allErrs, field.Invalid(fldPath.Child("access", "type"), kind, "local access no possible"))
 				}
@@ -271,9 +278,46 @@ func Validate(r *ResourceInput, ctx inputs.Context, inputFilePath string) error 
 	return allErrs.ToAggregate()
 }
 
+func ValidateElementIdentities(kind string, elems []Element) error {
+	list := errors.ErrList()
+	ids := map[string]SourceInfo{}
+	for _, r := range elems {
+		var i interface{}
+		err := runtime.DefaultYAMLEncoding.Unmarshal(r.Data(), &i)
+		if err != nil {
+			return errors.Wrapf(err, "cannot eval data %q", string(r.Data()))
+		}
+		id := r.Spec().GetRawIdentity()
+		dig := id.Digest()
+		if s, ok := ids[string(dig)]; ok {
+			list.Add(fmt.Errorf("duplicate %s identity %s (%s and %s)", kind, id, r.Source(), s))
+		}
+		ids[string(dig)] = r.Source()
+	}
+	return list.Result()
+}
+
+// ValidateElementSpecIdentities validate the element specifications
+// taken from some source (for example a resources.yaml or component-constructor.yaml).
+// The parameter src somehow identifies the element source, for example
+// the path of the parsed file.
+func ValidateElementSpecIdentities(kind string, src string, elems []ElementSpec) error {
+	list := errors.ErrList()
+	ids := map[string]int{}
+	for i, r := range elems {
+		id := r.GetRawIdentity()
+		dig := id.Digest()
+		if s, ok := ids[string(dig)]; ok {
+			list.Add(fmt.Errorf("duplicate %s identity %s (%s index %d and %d)", kind, id, src, i+1, s+1))
+		}
+		ids[string(dig)] = i
+	}
+	return list.Result()
+}
+
 func PrintElements(p common2.Printer, elems []Element, outfile string, fss ...vfs.FileSystem) error {
 	if outfile != "" && outfile != "-" {
-		f, err := accessio.FileSystem(fss...).OpenFile(outfile, vfs.O_TRUNC|vfs.O_CREATE|vfs.O_WRONLY, 0o644)
+		f, err := utils.FileSystem(fss...).OpenFile(outfile, vfs.O_TRUNC|vfs.O_CREATE|vfs.O_WRONLY, 0o644)
 		if err != nil {
 			return errors.Wrapf(err, "cannot create output file %q", outfile)
 		}

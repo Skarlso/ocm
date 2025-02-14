@@ -1,39 +1,39 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package common
 
 import (
 	"encoding/json"
 	"fmt"
 
-	_ "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs/types"
+	_ "ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs/types"
 
+	"github.com/mandelsoft/goutils/errors"
+	"github.com/mandelsoft/goutils/general"
+	"github.com/mandelsoft/goutils/sliceutils"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/pflag"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/dryrunoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/fileoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/templateroption"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/options"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/cobrautils/flagsets"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	"github.com/open-component-model/ocm/pkg/common/accessobj"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/accessmethods/localblob"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/repositories/comparch"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/logging"
-	"github.com/open-component-model/ocm/pkg/mime"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm"
+	"ocm.software/ocm/api/ocm/compdesc"
+	v1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	"ocm.software/ocm/api/ocm/extensions/accessmethods/localblob"
+	"ocm.software/ocm/api/ocm/extensions/repositories/comparch"
+	utils2 "ocm.software/ocm/api/utils"
+	"ocm.software/ocm/api/utils/accessio"
+	"ocm.software/ocm/api/utils/accessobj"
+	"ocm.software/ocm/api/utils/cobrautils/flagsets"
+	"ocm.software/ocm/api/utils/logging"
+	"ocm.software/ocm/api/utils/mime"
+	common "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/dryrunoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/fileoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/templateroption"
+	"ocm.software/ocm/cmds/ocm/common/options"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 const ComponentVersionTag = "<componentversion>"
@@ -43,15 +43,15 @@ type ResourceSpecHandler interface {
 	Set(v ocm.ComponentVersionAccess, r addhdlrs.Element, acc compdesc.AccessSpec) error
 }
 
-func CheckHint(v ocm.ComponentVersionAccess, acc compdesc.AccessSpec) error {
-	err := checkHint(v, "source", compdesc.SourceArtifacts, acc)
+func CheckHint(v ocm.ComponentVersionAccess, elem addhdlrs.Element, acc compdesc.AccessSpec) error {
+	err := checkHint(v, "source", elem, compdesc.SourceArtifacts, acc)
 	if err != nil {
 		return err
 	}
-	return checkHint(v, "resource", compdesc.ResourceArtifacts, acc)
+	return checkHint(v, "resource", elem, compdesc.ResourceArtifacts, acc)
 }
 
-func checkHint(v ocm.ComponentVersionAccess, typ string, artacc compdesc.ArtifactAccess, acc compdesc.AccessSpec) error {
+func checkHint(v ocm.ComponentVersionAccess, typ string, elem addhdlrs.Element, artacc compdesc.ArtifactAccess, acc compdesc.AccessSpec) error {
 	spec, err := v.GetContext().AccessSpecForSpec(acc)
 	if err != nil {
 		return err
@@ -63,11 +63,18 @@ func checkHint(v ocm.ComponentVersionAccess, typ string, artacc compdesc.Artifac
 	if local.ReferenceName == "" {
 		return nil
 	}
+	elemid := elem.Spec().GetRawIdentity()
+	if elemid[v1.SystemIdentityVersion] == ComponentVersionTag {
+		elemid[v1.SystemIdentityVersion] = v.GetVersion()
+	}
 	accessor := artacc(v.GetDescriptor())
 	for i := 0; i < accessor.Len(); i++ {
 		a := accessor.GetArtifact(i)
 		other, err := v.GetContext().AccessSpecForSpec(a.GetAccess())
 		if err != nil {
+			continue
+		}
+		if elemid.Equals(a.GetMeta().GetRawIdentity()) {
 			continue
 		}
 		olocal, ok := other.(*localblob.AccessSpec)
@@ -79,7 +86,7 @@ func checkHint(v ocm.ComponentVersionAccess, typ string, artacc compdesc.Artifac
 		}
 		if mime.BaseType(local.MediaType) == mime.BaseType(olocal.MediaType) {
 			return fmt.Errorf("reference name (hint) %q with base media type %s already used for %s %s:%s",
-				local.ReferenceName, mime.BaseType(local.MediaType), typ, a.GetMeta().Name, a.GetMeta().Version)
+				local.ReferenceName, mime.BaseType(local.MediaType), typ, a.GetMeta().GetName(), a.GetMeta().GetVersion())
 		}
 	}
 	return nil
@@ -94,7 +101,7 @@ type ElementFileSource struct {
 
 func NewElementFileSource(path string, fss ...vfs.FileSystem) addhdlrs.ElementSource {
 	return &ElementFileSource{
-		filesystem: accessio.FileSystem(fss...),
+		filesystem: utils2.FileSystem(fss...),
 		path:       addhdlrs.NewSourceInfo(path),
 	}
 }
@@ -131,7 +138,7 @@ type ElementMetaDataSpecificationsProvider struct {
 
 func NewElementMetaDataSpecificationsProvider(name string, adder flagsets.ConfigAdder, types ...flagsets.ConfigOptionType) *ElementMetaDataSpecificationsProvider {
 	meta := flagsets.NewPlainConfigProvider(name, flagsets.ComposedAdder(addMeta(name), adder),
-		append(types,
+		sliceutils.CopyAppend(types,
 			flagsets.NewYAMLOptionType(name, fmt.Sprintf("%s meta data (yaml)", name)),
 			flagsets.NewStringOptionType("name", fmt.Sprintf("%s name", name)),
 			flagsets.NewStringOptionType("version", fmt.Sprintf("%s version", name)),
@@ -184,8 +191,8 @@ options <code>--name</code> and <code>--version</code>. With the option <code>--
 it is possible to add extra identity attributes. Explicitly specified options
 override values specified by the <code>--%s</code> option.
 (Note: Go templates are not supported for YAML-based option values. Besides
-this restriction, the finally composed element description is still processd
-by the selected templater.) 
+this restriction, the finally composed element description is still processed
+by the selected template engine.)
 `, a.typename, a.typename, a.typename)
 }
 
@@ -215,6 +222,8 @@ type ContentResourceSpecificationsProvider struct {
 	accprov flagsets.ConfigTypeOptionSetConfigProvider
 	shared  flagsets.ConfigOptionTypeSet
 	options flagsets.ConfigOptions
+
+	contentFlags []string
 }
 
 var (
@@ -227,7 +236,7 @@ func NewContentResourceSpecificationProvider(ctx clictx.Context, name string, ad
 		DefaultType: deftype,
 		ctx:         ctx,
 		ElementMetaDataSpecificationsProvider: NewElementMetaDataSpecificationsProvider(name, flagsets.ComposedAdder(addContentMeta, adder),
-			append(types,
+			sliceutils.CopyAppend(types,
 				flagsets.NewStringOptionType("type", fmt.Sprintf("%s type", name)),
 			)...,
 		),
@@ -259,7 +268,7 @@ func (a *ContentResourceSpecificationsProvider) AddFlags(fs *pflag.FlagSet) {
 	a.accprov = a.ctx.OCMContext().AccessMethods().CreateConfigTypeSetConfigProvider()
 	inptypes := inputs.For(a.ctx).ConfigTypeSetConfigProvider()
 
-	set := flagsets.NewConfigOptionSet("resources")
+	set := flagsets.NewConfigOptionTypeSet("resources")
 	set.AddAll(a.accprov)
 	dup, err := set.AddAll(inptypes)
 	if err != nil {
@@ -270,6 +279,12 @@ func (a *ContentResourceSpecificationsProvider) AddFlags(fs *pflag.FlagSet) {
 	a.options.AddTypeSetGroupsToOptions(a.accprov)
 	a.options.AddTypeSetGroupsToOptions(inptypes)
 	a.options.AddFlags(fs)
+	a.contentFlags = nil
+	for _, t := range []flagsets.ConfigOptionType{inptypes.GetPlainOptionType(), inptypes.GetTypeOptionType(), a.accprov.GetPlainOptionType(), a.accprov.GetTypeOptionType()} {
+		if t != nil {
+			a.contentFlags = append(a.contentFlags, t.GetName())
+		}
+	}
 }
 
 func (a *ContentResourceSpecificationsProvider) IsSpecified() bool {
@@ -288,11 +303,11 @@ func (a *ContentResourceSpecificationsProvider) Complete() error {
 	aopts := unique.FilterBy(a.accprov.HasOptionType)
 	iopts := unique.FilterBy(inputs.For(a.ctx).ConfigTypeSetConfigProvider().HasOptionType)
 
+	if !a.options.Changed(a.contentFlags...) {
+		return fmt.Errorf("one of %v is required", flagsets.AddPrefix("--", a.contentFlags...))
+	}
 	if aopts.Changed() && iopts.Changed() {
 		return fmt.Errorf("either input or access specification is possible")
-	}
-	if !a.options.Changed("input", "inputType", "access", "accessType") {
-		return fmt.Errorf("either --input, --inputType, --access or --accessType is required")
 	}
 	return nil
 }
@@ -368,8 +383,12 @@ type ResourceAdderCommand struct {
 }
 
 func NewResourceAdderCommand(ctx clictx.Context, h ResourceSpecHandler, provider ElementSpecificationsProvider, opts ...options.Options) ResourceAdderCommand {
+	if o, ok := h.(options.Options); ok {
+		opts = append(opts, o)
+	}
 	return ResourceAdderCommand{
-		BaseCommand: utils.NewBaseCommand(ctx, append(opts,
+		BaseCommand: utils.NewBaseCommand(ctx, sliceutils.CopyAppend[options.Options](opts,
+			//nolint:staticcheck // Deprecated: Component Archive (CA) - https://kubernetes.slack.com/archives/C05UWBE8R1D/p1734357630853489
 			fileoption.NewCompArch(),
 			dryrunoption.New(fmt.Sprintf("evaluate and print %s specifications", h.Key()), true),
 			templateroption.New(""),
@@ -438,10 +457,13 @@ func (o *ResourceAdderCommand) ProcessResourceDescriptions() error {
 		return addhdlrs.PrintElements(printer, elems, dr.Outfile, o.Context.FileSystem())
 	}
 
+	// FIXME: use CommonTransportFormat archives to store OCM components
+	//nolint:staticcheck // Deprecated: Component Archive (CA) - https://kubernetes.slack.com/archives/C05UWBE8R1D/p1734357630853489
 	obj, err := comparch.Open(o.Context.OCMContext(), accessobj.ACC_WRITABLE, o.Archive, 0, accessio.PathFileSystem(fs))
 	if err != nil {
 		return err
 	}
+	//nolint:staticcheck // Deprecated: Component Archive (CA) - https://kubernetes.slack.com/archives/C05UWBE8R1D/p1734357630853489
 	defer obj.Close()
 	return ProcessElements(ictx, obj, elems, o.Handler)
 }
@@ -462,7 +484,7 @@ func ProcessElements(ictx inputs.Context, cv ocm.ComponentVersionAccess, elems [
 				info := inputs.InputResourceInfo{
 					ComponentVersion: common.VersionedElementKey(cv),
 					ElementName:      elem.Spec().GetName(),
-					InputFilePath:    elem.Source().Origin(),
+					InputFilePath:    general.OptionalDefaulted(elem.Source().Origin(), elem.Input().SourceFile),
 				}
 				blob, hint, berr := elem.Input().Input.GetBlob(ictx, info)
 				if berr != nil {
@@ -474,14 +496,14 @@ func ProcessElements(ictx inputs.Context, cv ocm.ComponentVersionAccess, elems [
 				acc, err = cv.AddBlob(blob, elem.Type(), hint, nil)
 				blob.Close()
 				if err == nil {
-					err = CheckHint(cv, acc)
+					err = CheckHint(cv, elem, acc)
 					if err == nil {
 						err = h.Set(cv, elem, acc)
 					}
 				}
 			} else {
 				acc := elem.Input().Access
-				err = CheckHint(cv, acc)
+				err = CheckHint(cv, elem, acc)
 				if err == nil {
 					err = h.Set(cv, elem, acc)
 				}

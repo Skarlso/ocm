@@ -1,27 +1,24 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package execute
 
 import (
 	"encoding/json"
 	"strings"
 
-	"github.com/mandelsoft/vfs/pkg/vfs"
+	"github.com/mandelsoft/goutils/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/names"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/credentials"
-	"github.com/open-component-model/ocm/pkg/contexts/datacontext/action"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/out"
-	"github.com/open-component-model/ocm/pkg/runtime"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/credentials"
+	"ocm.software/ocm/api/datacontext/action"
+	"ocm.software/ocm/api/datacontext/action/api"
+	utils2 "ocm.software/ocm/api/utils"
+	common "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/api/utils/out"
+	"ocm.software/ocm/api/utils/runtime"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/names"
+	"ocm.software/ocm/cmds/ocm/commands/verbs"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 var (
@@ -58,14 +55,17 @@ func (o *Command) ForName(name string) *cobra.Command {
 		Args:  cobra.MinimumNArgs(1),
 		Long: `
 Execute an action extension for a given action specification. The specification
-show be a JSON or YAML argument.
+should be a JSON or YAML argument.
 
 Additional properties settings can be used to describe a consumer id
 to retrieve credentials for.
-`,
+
+The following actions are supported:
+` + api.Usage(api.DefaultRegistry()),
 		Example: `
 $ ocm execute action '{ "type": "oci.repository.prepare/v1", "hostname": "...", "repository": "..."}'
 `,
+		Annotations: map[string]string{"ExampleCodeStyle": "bash"},
 	}
 }
 
@@ -80,9 +80,9 @@ func (o *Command) Complete(args []string) error {
 
 	data := []byte(args[0])
 	if strings.HasPrefix(args[0], "@") {
-		data, err = vfs.ReadFile(o.FileSystem(), args[0][1:])
+		data, err = utils2.ResolveData(args[0][1:], o.FileSystem())
 		if err != nil {
-			return errors.Wrapf(err, "cannot read file %q", args[0][1:])
+			return err
 		}
 	}
 

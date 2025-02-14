@@ -1,13 +1,9 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package topicconfig
 
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
+	clictx "ocm.software/ocm/api/cli"
 )
 
 func New(ctx clictx.Context) *cobra.Command {
@@ -32,6 +28,7 @@ configurations:
 #         script:
 #           process: true
 `,
+		Annotations: map[string]string{"ExampleCodeStyle": "yaml"},
 		Long: `
 The command line client supports configuring by a given configuration file.
 If existent, by default, the file <code>$HOME/.ocmconfig</code> will be read.

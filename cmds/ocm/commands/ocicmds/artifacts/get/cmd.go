@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package get
 
 import (
@@ -9,18 +5,18 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/common/options/closureoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocicmds/common"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocicmds/common/handlers/artifacthdlr"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocicmds/common/options/repooption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocicmds/names"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/options"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/output"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/processing"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/oci"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/oci"
+	"ocm.software/ocm/cmds/ocm/commands/common/options/closureoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocicmds/common"
+	"ocm.software/ocm/cmds/ocm/commands/ocicmds/common/handlers/artifacthdlr"
+	"ocm.software/ocm/cmds/ocm/commands/ocicmds/common/options/repooption"
+	"ocm.software/ocm/cmds/ocm/commands/ocicmds/names"
+	"ocm.software/ocm/cmds/ocm/commands/verbs"
+	"ocm.software/ocm/cmds/ocm/common/options"
+	"ocm.software/ocm/cmds/ocm/common/output"
+	"ocm.software/ocm/cmds/ocm/common/processing"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 var (
@@ -48,9 +44,10 @@ Get lists all artifact versions specified, if only a repository is specified
 all tagged artifacts are listed.
 	`,
 		Example: `
-$ ocm get artifact ghcr.io/mandelsoft/kubelink
-$ ocm get artifact --repo OCIRegistry::ghcr.io mandelsoft/kubelink
+$ ocm get artifact ghcr.io/open-component-model/ocm/component-descriptors/ocm.software/ocmcli
+$ ocm get artifact ghcr.io/open-component-model/ocm/ocm.software/ocmcli/ocmcli-image:0.17.0
 `,
+		Annotations: map[string]string{"ExampleCodeStyle": "bash"},
 	}
 }
 

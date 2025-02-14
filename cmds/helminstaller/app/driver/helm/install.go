@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package helm
 
 import (
@@ -26,7 +22,7 @@ func Install(l logging.Logger, path string, release string, namespace string, cr
 		KubeConfig:  kubeconfig,
 	}
 
-	helmClient, err := helmclient.NewClientFromKubeConf(opt, helmclient.Burst(100), helmclient.Timeout(10*time.Second))
+	helmClient, err := helmclient.NewClientFromKubeConf(opt, helmclient.Burst(100), helmclient.Timeout(30*time.Second))
 	if err != nil {
 		return err
 	}

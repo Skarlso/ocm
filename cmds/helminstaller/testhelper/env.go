@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package testhelper
 
 import (
@@ -9,17 +5,17 @@ import (
 
 	"github.com/mandelsoft/vfs/pkg/vfs"
 
-	"github.com/open-component-model/ocm/cmds/helminstaller/app"
-	"github.com/open-component-model/ocm/cmds/helminstaller/app/driver"
-	"github.com/open-component-model/ocm/cmds/helminstaller/app/driver/helm"
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/config"
-	"github.com/open-component-model/ocm/pkg/contexts/credentials"
-	"github.com/open-component-model/ocm/pkg/contexts/oci"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/env"
-	"github.com/open-component-model/ocm/pkg/env/builder"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/config"
+	"ocm.software/ocm/api/credentials"
+	"ocm.software/ocm/api/helper/builder"
+	"ocm.software/ocm/api/helper/env"
+	"ocm.software/ocm/api/oci"
+	"ocm.software/ocm/api/ocm"
+	"ocm.software/ocm/api/utils/accessio"
+	"ocm.software/ocm/cmds/helminstaller/app"
+	"ocm.software/ocm/cmds/helminstaller/app/driver"
+	"ocm.software/ocm/cmds/helminstaller/app/driver/helm"
 )
 
 type CLI struct {
@@ -46,7 +42,7 @@ type TestEnv struct {
 }
 
 func NewTestEnv(opts ...env.Option) *TestEnv {
-	b := builder.NewBuilder(env.NewEnvironment(opts...))
+	b := builder.NewBuilder(opts...)
 	ctx := clictx.WithOCM(b.OCMContext()).New()
 	return &TestEnv{
 		Builder: b,

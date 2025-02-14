@@ -1,20 +1,20 @@
-## ocm add &mdash; Add Resources Or Sources To A Component Archive
+## ocm add &mdash; Add Elements To A Component Repository Or Component Version
 
 ### Synopsis
 
-```
+```bash
 ocm add [<options>] <sub command> ...
 ```
 
 ### Options
 
-```
+```text
   -h, --help   help for add
 ```
 
 ### SEE ALSO
 
-##### Parents
+#### Parents
 
 * [ocm](ocm.md)	 &mdash; Open Component Model command line client
 
@@ -25,6 +25,7 @@ ocm add [<options>] <sub command> ...
 * [ocm add <b>references</b>](ocm_add_references.md)	 &mdash; add aggregation information to a component version
 * [ocm add <b>resource-configuration</b>](ocm_add_resource-configuration.md)	 &mdash; add a resource specification to a resource config file
 * [ocm add <b>resources</b>](ocm_add_resources.md)	 &mdash; add resources to a component version
+* [ocm add <b>routingslips</b>](ocm_add_routingslips.md)	 &mdash; add routing slip entry
 * [ocm add <b>source-configuration</b>](ocm_add_source-configuration.md)	 &mdash; add a source specification to a source config file
 * [ocm add <b>sources</b>](ocm_add_sources.md)	 &mdash; add source information to a component version
 

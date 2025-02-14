@@ -1,29 +1,26 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package signoption
 
 import (
-	"crypto/x509"
-	"encoding/base64"
+	"fmt"
 	"strings"
 
-	"github.com/mandelsoft/vfs/pkg/vfs"
+	"github.com/mandelsoft/goutils/errors"
 	"github.com/spf13/pflag"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/hashoption"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/options"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/attrs/signingattr"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/normalizations/jsonv1"
-	ocmsign "github.com/open-component-model/ocm/pkg/contexts/ocm/signing"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/listformat"
-	"github.com/open-component-model/ocm/pkg/signing"
-	"github.com/open-component-model/ocm/pkg/signing/handlers/rsa"
-	"github.com/open-component-model/ocm/pkg/signing/hasher/sha256"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm/compdesc"
+	"ocm.software/ocm/api/ocm/compdesc/normalizations/jsonv3"
+	"ocm.software/ocm/api/ocm/extensions/attrs/signingattr"
+	ocmsign "ocm.software/ocm/api/ocm/tools/signing"
+	"ocm.software/ocm/api/tech/signing"
+	"ocm.software/ocm/api/tech/signing/handlers/rsa"
+	"ocm.software/ocm/api/tech/signing/hasher/sha256"
+	"ocm.software/ocm/api/tech/signing/signutils"
+	"ocm.software/ocm/api/utils/listformat"
+	"ocm.software/ocm/cmds/ocm/commands/common/options/keyoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/hashoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/storeoption"
+	"ocm.software/ocm/cmds/ocm/common/options"
 )
 
 func From(o options.OptionSetProvider) *Option {
@@ -39,15 +36,12 @@ func New(sign bool) *Option {
 }
 
 type Option struct {
-	rootca []string
+	keyoption.Option
 
-	local         bool
+	local bool
+
 	SignMode      bool
 	signAlgorithm string
-	publicKeys    []string
-	privateKeys   []string
-	Issuer        string
-	RootCerts     *x509.CertPool
 	// Verify the digests
 	Verify bool
 
@@ -58,28 +52,34 @@ type Option struct {
 	SignatureNames []string
 	Update         bool
 	Signer         signing.Signer
-	Keys           signing.KeyRegistry
+
+	UseTSA bool
+	TSAUrl string
 
 	Hash hashoption.Option
 
 	Keyless bool
+
+	Verified storeoption.Option
 }
 
+const DEFAULT_VERIFIED_FILE = "~/.ocm/verified"
+
 func (o *Option) AddFlags(fs *pflag.FlagSet) {
+	o.Option.AddFlags(fs)
+	o.Verified.AddFlags(fs)
 	fs.StringArrayVarP(&o.SignatureNames, "signature", "s", nil, "signature name")
-	fs.StringArrayVarP(&o.publicKeys, "public-key", "k", nil, "public key setting")
 	if o.SignMode {
 		o.Hash.AddFlags(fs)
-		fs.StringArrayVarP(&o.privateKeys, "private-key", "K", nil, "private key setting")
 		fs.StringVarP(&o.signAlgorithm, "algorithm", "S", rsa.Algorithm, "signature handler")
-		fs.StringVarP(&o.Issuer, "issuer", "I", "", "issuer name")
 		fs.BoolVarP(&o.Update, "update", "", o.SignMode, "update digest in component versions")
 		fs.BoolVarP(&o.Recursively, "recursive", "R", false, "recursively sign component versions")
+		fs.BoolVarP(&o.UseTSA, "tsa", "", false, fmt.Sprintf("use timestamp authority (default server: %s)", signing.DEFAULT_TSA_URL))
+		fs.StringVarP(&o.TSAUrl, "tsa-url", "", "", "TSA server URL")
 	} else {
 		fs.BoolVarP(&o.local, "local", "L", false, "verification based on information found in component versions, only")
 	}
 	fs.BoolVarP(&o.Verify, "verify", "V", o.SignMode, "verify existing digests")
-	fs.StringArrayVarP(&o.rootca, "ca-cert", "", o.rootca, "additional root certificates")
 	fs.BoolVar(&o.Keyless, "keyless", false, "use keyless signing")
 }
 
@@ -87,17 +87,20 @@ func (o *Option) Configure(ctx clictx.Context) error {
 	if len(o.SignatureNames) > 0 {
 		for i, n := range o.SignatureNames {
 			n = strings.TrimSpace(n)
-			o.SignatureNames[i] = n
+			dn, err := signutils.ParseDN(n)
+			if err != nil {
+				return err
+			}
+			o.SignatureNames[i] = signutils.NormalizeDN(*dn)
 			if n == "" {
 				return errors.Newf("empty signature name (name %d) not possible", i)
 			}
 		}
+		o.DefaultName = o.SignatureNames[0] // set default name for key handling
 	} else {
 		o.SignatureNames = nil
 	}
-	if o.Keys == nil {
-		o.Keys = signing.NewKeyRegistry()
-	}
+
 	if o.SignMode {
 		err := o.Hash.Configure(ctx)
 		if err != nil {
@@ -114,71 +117,12 @@ func (o *Option) Configure(ctx clictx.Context) error {
 		o.Recursively = !o.local
 	}
 
-	err := o.handleKeys(ctx, "public key", o.publicKeys, o.Keys.RegisterPublicKey)
-	if err != nil {
-		return err
-	}
-	err = o.handleKeys(ctx, "private key", o.privateKeys, o.Keys.RegisterPrivateKey)
+	err := o.Option.Configure(ctx.OCMContext())
 	if err != nil {
 		return err
 	}
 
-	if len(o.rootca) > 0 {
-		pool, err := signing.BaseRootPool()
-		if err != nil {
-			return err
-		}
-		for _, r := range o.rootca {
-			data, err := vfs.ReadFile(ctx.FileSystem(), r)
-			if err != nil {
-				return errors.Wrapf(err, "cannot read ca file %q", r)
-			}
-			ok := pool.AppendCertsFromPEM(data)
-			if !ok {
-				return errors.Newf("cannot add rot certs from %q", r)
-			}
-		}
-		o.RootCerts = pool
-	}
-	return nil
-}
-
-func (o *Option) handleKeys(ctx clictx.Context, desc string, keys []string, add func(string, interface{})) error {
-	for _, k := range keys {
-		name := ""
-		if len(o.SignatureNames) > 0 {
-			name = o.SignatureNames[0]
-		}
-		file := k
-		sep := strings.Index(k, "=")
-		if sep > 0 {
-			name = k[:sep]
-			file = k[sep+1:]
-		}
-		if len(file) == 0 {
-			return errors.Newf("empty file name")
-		}
-		var data []byte
-		var err error
-		switch file[0] {
-		case '=':
-			data = []byte(file[1:])
-		case '!':
-			data, err = base64.StdEncoding.DecodeString(file[1:])
-		case '@':
-			data, err = vfs.ReadFile(ctx.FileSystem(), file[1:])
-		default:
-			data, err = vfs.ReadFile(ctx.FileSystem(), file)
-		}
-		if err != nil {
-			return errors.Wrapf(err, "cannot read %s file %q", desc, file)
-		}
-		if name == "" {
-			return errors.Newf("signature name required")
-		}
-		add(name, data)
-	}
-	return nil
+	return o.Verified.Configure(ctx)
 }
 
 func (o *Option) Usage() string {
@@ -192,7 +136,8 @@ signature name specified with the option <code>--signature</code>.
 Alternatively a key can be specified as base64 encoded string if the argument
 start with the prefix <code>!</code> or as direct string with the prefix
 <code>=</code>.
-`
+` + o.Verified.Usage()
+
 	if o.SignMode {
 		s += `
 If in signing mode a public key is specified, existing signatures for the
@@ -206,7 +151,7 @@ The following signing types are supported with option <code>--algorithm</code>:
 		s += `
 
 The following normalization modes are supported with option <code>--normalization</code>:
-` + listformat.FormatList(jsonv1.Algorithm, compdesc.Normalizations.Names()...)
+` + listformat.FormatList(jsonv3.Algorithm, compdesc.Normalizations.Names()...)
 
 		s += `
 
@@ -230,8 +175,18 @@ func (o *Option) ApplySigningOption(opts *ocmsign.Options) {
 	opts.Keys = o.Keys
 	opts.NormalizationAlgo = o.Hash.NormAlgorithm
 	opts.Hasher = o.Hash.Hasher
-	if o.Issuer != "" {
-		opts.Issuer = o.Issuer
+
+	if o.UseTSA || o.TSAUrl != "" {
+		opts.UseTSA = true
+		if o.TSAUrl != "" {
+			opts.TSAUrl = o.TSAUrl
+		}
+	}
+	if o.Keys != nil {
+		def := o.Keys.GetIssuer("")
+		if def != nil {
+			opts.Issuer = def
+		}
 	}
 	if o.RootCerts != nil {
 		opts.RootCerts = o.RootCerts
@@ -245,4 +200,6 @@ func (o *Option) ApplySigningOption(opts *ocmsign.Options) {
 	}
 	opts.Update = o.Update
 	opts.Keyless = o.Keyless
+
+	opts.VerifiedStore = o.Verified.Store
 }

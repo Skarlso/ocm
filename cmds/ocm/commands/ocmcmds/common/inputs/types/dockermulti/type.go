@@ -1,11 +1,8 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package dockermulti
 
 import (
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
+	"ocm.software/ocm/api/oci/annotations"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
 )
 
 const TYPE = "dockermulti"
@@ -17,8 +14,11 @@ func init() {
 const usage = `
 This input type describes the composition of a multi-platform OCI image.
 The various variants are taken from the local docker daemon. They should be 
-built with the buildx command for cross platform docker builds.
-The denoted images, as well as the wrapping image index is packed as OCI artifact set.
+built with the "buildx" command for cross platform docker builds (see https://ocm.software/docs/tutorials/best-practices/#building-multi-architecture-images).
+The denoted images, as well as the wrapping image index, are packed as OCI
+artifact set.
+They will contain an informational back link to the component version
+using the manifest annotation <code>` + annotations.COMPVERS_ANNOTATION + `</code>.
 
 This blob type specification supports the following fields:
 - **<code>variants</code>** *[]string*

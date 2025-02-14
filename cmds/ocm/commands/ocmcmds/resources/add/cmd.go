@@ -1,21 +1,18 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package add
 
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs/rscs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/names"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/template"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm"
+	"ocm.software/ocm/api/utils/template"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs/rscs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/names"
+	"ocm.software/ocm/cmds/ocm/commands/verbs"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 var (
@@ -31,7 +28,7 @@ type Command struct {
 func NewCommand(ctx clictx.Context, names ...string) *cobra.Command {
 	return utils.SetupCommand(
 		&Command{
-			common.NewResourceAdderCommand(ctx, rscs.ResourceSpecHandler{}, NewResourceSpecificationsProvider(ctx, "")),
+			common.NewResourceAdderCommand(ctx, rscs.New().WithCLIOptions(&addhdlrs.Options{}), NewResourceSpecificationsProvider(ctx, "")),
 		},
 		utils.Names(Names, names...)...,
 	)
@@ -54,7 +51,7 @@ Add a resource by a description file:
 <pre>
 ---
 name: myrresource
-type: PlainText
+type: plainText
 version: ${version]
 input:
   type: file
@@ -70,8 +67,8 @@ $ ocm add resources --file path/to/ca  resources.yaml VERSION=1.0.0
 
 func (o *Command) Long() string {
 	return `
-Add resources specified in a resource file to a component version.
-So far only component archives are supported as target.
+Adds resources specified in a resource file to a component version.
+So far, only component archives are supported as target.
 
 This command accepts resource specification files describing the resources
 to add to a component version. Elements must follow the resource meta data
@@ -87,7 +84,9 @@ The description file might contain:
 
 ` + o.Adder.Description() + (&template.Options{}).Usage() +
 		inputs.Usage(inputs.DefaultInputTypeScheme) +
-		ocm.AccessUsage(o.OCMContext().AccessMethods(), true)
+		ocm.AccessUsage(o.OCMContext().AccessMethods(), true) + `
+
+` + (&addhdlrs.Options{}).Description()
 }
 
 func (o *Command) Run() error {

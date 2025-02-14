@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 //go:build unix
 
 package describe_test
@@ -9,46 +5,43 @@ package describe_test
 import (
 	"bytes"
 
+	. "github.com/mandelsoft/goutils/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/open-component-model/ocm/cmds/ocm/testhelper"
-	. "github.com/open-component-model/ocm/pkg/testutils"
-
-	"github.com/mandelsoft/filepath/pkg/filepath"
+	. "ocm.software/ocm/api/ocm/plugin/testutils"
+	. "ocm.software/ocm/cmds/ocm/testhelper"
 )
 
 const PLUGINS = "/testdata"
 
 var _ = Describe("Test Environment", func() {
 	var env *TestEnv
-	var path string
+	var plugins TempPluginDir
 
 	BeforeEach(func() {
-		env = NewTestEnv(TestData())
-
-		// use os filesystem here
-		p, err := filepath.Abs("testdata")
-		Expect(err).To(Succeed())
-		path = p
+		env = NewTestEnv()
+		plugins = Must(ConfigureTestPlugins(env, "testdata"))
 	})
 
 	AfterEach(func() {
+		plugins.Cleanup()
 		env.Cleanup()
 	})
 
 	It("get plugins", func() {
 		buf := bytes.NewBuffer(nil)
-		Expect(env.CatchOutput(buf).Execute("-X", "plugindir="+path, "describe", "plugins")).To(Succeed())
+		Expect(env.CatchOutput(buf).Execute("-X", "plugindir="+plugins.Path(), "describe", "plugins")).To(Succeed())
 		Expect(buf.String()).To(StringEqualTrimmedWithContext(
 			`
 Plugin Name:      action
 Plugin Version:   v1
-Path:             ` + path + `/action
+Path:             ` + plugins.Path() + `/action
 Status:           valid
-Capabilities:     Actions
 Source:           manually installed
+Capabilities:     Actions
 Description: 
       a test plugin with action oci.repository.prepare
+
 Actions:
 - Name: oci.repository.prepare
     Prepare the usage of a repository in an OCI registry.
@@ -67,12 +60,13 @@ Actions:
 ----------------------
 Plugin Name:      test
 Plugin Version:   v1
-Path:             ` + path + `/test
+Path:             ` + plugins.Path() + `/test
 Status:           valid
-Capabilities:     Access Methods
 Source:           manually installed
+Capabilities:     Access Methods
 Description: 
       a test plugin with access method test
+
 Access Methods:
 - Name: test
   Versions:

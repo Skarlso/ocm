@@ -1,39 +1,42 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package transfer
 
 import (
+	"encoding/json"
 	"fmt"
 
+	"github.com/mandelsoft/goutils/errors"
+	"github.com/mandelsoft/goutils/maputils"
+	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/common/options/closureoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/common/options/formatoption"
-	ocmcommon "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/handlers/comphdlr"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/omitaccesstypeoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/overwriteoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/repooption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/rscbyvalueoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/scriptoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/srcbyvalueoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/stoponexistingoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/uploaderoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/versionconstraintsoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/names"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/output"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/transfer"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/transfer/transferhandler"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/transfer/transferhandler/spiff"
-	"github.com/open-component-model/ocm/pkg/errors"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm"
+	"ocm.software/ocm/api/ocm/tools/transfer"
+	"ocm.software/ocm/api/ocm/tools/transfer/transferhandler"
+	"ocm.software/ocm/api/ocm/tools/transfer/transferhandler/spiff"
+	common "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/api/utils/out"
+	"ocm.software/ocm/cmds/ocm/commands/common/options/closureoption"
+	"ocm.software/ocm/cmds/ocm/commands/common/options/formatoption"
+	ocmcommon "ocm.software/ocm/cmds/ocm/commands/ocmcmds/common"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/handlers/comphdlr"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/omitaccesstypeoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/overwriteoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/repooption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/rscbyvalueoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/scriptoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/skipupdateoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/srcbyvalueoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/stoponexistingoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/uploaderoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/versionconstraintsoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/names"
+	"ocm.software/ocm/cmds/ocm/commands/verbs"
+	"ocm.software/ocm/cmds/ocm/common/options"
+	"ocm.software/ocm/cmds/ocm/common/output"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 var (
@@ -44,8 +47,10 @@ var (
 type Command struct {
 	utils.BaseCommand
 
-	Refs       []string
-	TargetName string
+	Refs                []string
+	TargetName          string
+	BOMFile             string
+	DisableBlobHandlers bool
 }
 
 // NewCommand creates a new ctf command.
@@ -57,6 +62,7 @@ func NewCommand(ctx clictx.Context, names ...string) *cobra.Command {
 		closureoption.New("component reference"),
 		lookupoption.New(),
 		overwriteoption.New(),
+		skipupdateoption.New(),
 		rscbyvalueoption.New(),
 		srcbyvalueoption.New(),
 		omitaccesstypeoption.New(),
@@ -77,10 +83,18 @@ If only a component (instead of a component version) is specified all versions
 are transferred.
 `,
 		Example: `
-$ ocm transfer components -t tgz ghcr.io/mandelsoft/kubelink ctf.tgz
-$ ocm transfer components -t tgz --repo OCIRegistry::ghcr.io mandelsoft/kubelink ctf.tgz
+$ ocm transfer components -t tgz ghcr.io/open-component-model/ocm//ocm.software/ocmcli:0.17.0 ./ctf.tgz
+$ ocm transfer components --latest -t tgz --repo OCIRegistry::ghcr.io/open-component-model/ocm ocm.software/ocmcli ./ctf.tgz
+$ ocm transfer components --latest --copy-resources --type directory ghcr.io/open-component-model/ocm//ocm.software/ocmcli ./ctf
 `,
+		Annotations: map[string]string{"ExampleCodeStyle": "bash"},
 	}
+}
+
+func (o *Command) AddFlags(fs *pflag.FlagSet) {
+	o.BaseCommand.AddFlags(fs)
+	fs.StringVarP(&o.BOMFile, "bom-file", "B", "", "file name to write the component version BOM")
+	fs.BoolVarP(&o.DisableBlobHandlers, "disable-uploads", "", false, "disable standard upload handlers for transport")
 }
 
 func (o *Command) Complete(args []string) error {
@@ -97,6 +111,10 @@ func (o *Command) Run() error {
 	defer session.Close()
 	session.Finalize(o.OCMContext())
 
+	if o.DisableBlobHandlers {
+		out.Outln(o.Context, "standard blob upload handlers are disabled.")
+		o.Context.OCMContext().DisableBlobHandlers()
+	}
 	err := o.ProcessOnOptions(ocmcommon.CompleteOptionsWithSession(o, session))
 	if err != nil {
 		return err
@@ -114,20 +132,11 @@ func (o *Command) Run() error {
 
 	transferopts := &spiff.Options{}
 	transferhandler.From(o.ConfigContext(), transferopts)
-	transferhandler.ApplyOptions(transferopts,
-		lookupoption.From(o),
-
-		closureoption.From(o),
-		overwriteoption.From(o),
-		rscbyvalueoption.From(o),
-		srcbyvalueoption.From(o),
-		stoponexistingoption.From(o),
-		omitaccesstypeoption.From(o),
+	transferhandler.ApplyOptions(transferopts, append(options.FindOptions[transferhandler.TransferOption](o),
 		spiff.Script(scriptoption.From(o).ScriptData),
 		spiff.ScriptFilesystem(o.FileSystem()),
-	)
+	)...)
 	thdlr, err := spiff.New(transferopts)
-
 	if err != nil {
 		return err
 	}
@@ -179,7 +188,37 @@ func (a *action) Close() error {
 func (a *action) Out() error {
 	a.printer.Printf("%d versions transferred\n", len(a.closure))
 	if a.errors.Result() != nil {
-		return fmt.Errorf("transfer finished with %d error(s)", a.errors.Len())
+		sum := "Error summary:"
+		for _, e := range a.errors.Entries() {
+			sum = fmt.Sprintf("%s\n- %s", sum, e)
+		}
+		return fmt.Errorf("transfer finished with %d error(s)\n%s\n", a.errors.Len(), sum)
+	}
+
+	if a.cmd.BOMFile != "" {
+		bom := BOM{}
+		for _, nv := range maputils.Keys(a.closure, common.CompareNameVersion) {
+			bom.List = append(bom.List, BomEntry{
+				Component: nv.GetName(),
+				Version:   nv.GetVersion(),
+			})
+		}
+		data, err := json.Marshal(&bom)
+		if err != nil {
+			return errors.Wrapf(err, "cannot marshal BOM")
+		}
+		err = vfs.WriteFile(a.cmd.FileSystem(), a.cmd.BOMFile, data, 0o640)
+		if err != nil {
+			return errors.Wrapf(err, "cannot write BOM")
+		}
 	}
 	return nil
+}
+
+type BomEntry struct {
+	Component string `json:"component"`
+	Version   string `json:"version"`
+}
+type BOM struct {
+	List []BomEntry `json:"componentVersions"`
 }

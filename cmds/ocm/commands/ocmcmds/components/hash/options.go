@@ -1,20 +1,15 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package hash
 
 import (
 	"github.com/spf13/pflag"
 
-	signingcmd "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/cmds/signing"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/hashoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/repooption"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/options"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/attrs/signingattr"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/signing"
+	"ocm.software/ocm/api/ocm/tools/signing"
+	common "ocm.software/ocm/api/utils/misc"
+	signingcmd "ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/cmds/signing"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/hashoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/repooption"
+	"ocm.software/ocm/cmds/ocm/common/options"
 )
 
 func From(o options.OptionSetProvider) *Option {
@@ -38,7 +33,7 @@ func (o *Option) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVarP(&o.Actual, "actual", "", false, "use actual component descriptor")
 	fs.BoolVarP(&o.Update, "update", "U", false, "update digests in component version")
 	fs.BoolVarP(&o.Verify, "verify", "V", false, "verify digests found in component version")
-	fs.StringVarP(&o.outfile, "outfile", "O", "norm.ncd", "Output file for normalized component descriptor")
+	fs.StringVarP(&o.outfile, "outfile", "O", "-", "Output file for normalized component descriptor")
 }
 
 func (o *Option) Complete(cmd *Command) error {
@@ -48,7 +43,7 @@ func (o *Option) Complete(cmd *Command) error {
 	repo := repooption.From(cmd).Repository
 	lookup := lookupoption.From(cmd)
 	sopts := signing.NewOptions(hashoption.From(cmd), signing.Resolver(repo, lookup.Resolver), signing.Update(o.Update), signing.VerifyDigests(o.Verify))
-	err := sopts.Complete(signingattr.Get(cmd.Context.OCMContext()))
+	err := sopts.Complete(cmd.Context.OCMContext())
 	if err == nil {
 		o.action = signingcmd.NewAction([]string{"", ""}, cmd.Context.OCMContext(), common.NewPrinter(nil), sopts)
 	}

@@ -6,7 +6,7 @@ Format based directory or archive. Here, no credentials
 are required. The basic content handling is identical
 to the [OCI-based OCM example](creds.md).
 
-## Creating a CTF 
+## Creating a CTF
 
 A transport file can be created in a virtual filesystem.
 The simplest way is just to use the OS filesystem `osfs.New()`,
@@ -15,7 +15,7 @@ which is the default.
 In this example we just use a memory based filesystem.
 
 ```go
-  import "github.com/open-component-model/ocm/pkg/contexts/ocm/repositories/ctf"
+  import "ocm.software/ocm/api/ocm/extensions/repositories/ctf"
 
   octx := ocm.DefaultContext()
 

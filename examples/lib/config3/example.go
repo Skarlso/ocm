@@ -1,17 +1,14 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package main
 
 import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/open-component-model/ocm/pkg/contexts/config"
-	"github.com/open-component-model/ocm/pkg/contexts/config/cpi"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/runtime"
+	"github.com/mandelsoft/goutils/errors"
+
+	"ocm.software/ocm/api/config"
+	"ocm.software/ocm/api/config/cpi"
+	"ocm.software/ocm/api/utils/runtime"
 )
 
 const CFGFILE = "examples/lib/config3/config.yaml"

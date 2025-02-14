@@ -1,28 +1,29 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package comp
 
 import (
 	"fmt"
 
-	. "github.com/open-component-model/ocm/pkg/finalizer"
+	. "github.com/mandelsoft/goutils/finalizer"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs/refs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs/rscs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs/srcs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/attrs/compatattr"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc"
-	metav1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/runtime"
+	"github.com/mandelsoft/goutils/errors"
+	"github.com/spf13/pflag"
+
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm"
+	"ocm.software/ocm/api/ocm/compdesc"
+	metav1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	"ocm.software/ocm/api/ocm/extensions/attrs/compatattr"
+	"ocm.software/ocm/api/utils/errkind"
+	"ocm.software/ocm/api/utils/runtime"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs/refs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs/rscs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs/srcs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/schemaoption"
+	"ocm.software/ocm/cmds/ocm/common/options"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 const (
@@ -30,14 +31,44 @@ const (
 )
 
 type ResourceSpecHandler struct {
-	version string
-	schema  string
+	rschandler *rscs.ResourceSpecHandler
+	srchandler *srcs.ResourceSpecHandler
+	refhandler *refs.ResourceSpecHandler
+	version    string
+	schema     *schemaoption.Option
 }
 
-var _ common.ResourceSpecHandler = (*ResourceSpecHandler)(nil)
+var (
+	_ common.ResourceSpecHandler = (*ResourceSpecHandler)(nil)
+	_ options.Options            = (*ResourceSpecHandler)(nil)
+)
 
-func NewResourceSpecHandler(v string, schema string) *ResourceSpecHandler {
-	return &ResourceSpecHandler{version: v, schema: schema}
+func New(opts ...ocm.ModificationOption) *ResourceSpecHandler {
+	return &ResourceSpecHandler{
+		rschandler: rscs.New(opts...),
+		srchandler: srcs.New(),
+		refhandler: refs.New(),
+		schema:     schemaoption.New(compdesc.DefaultSchemeVersion),
+	}
+}
+
+func (h *ResourceSpecHandler) AsOptionSet() options.OptionSet {
+	return options.OptionSet{h.rschandler.AsOptionSet(), h.srchandler.AsOptionSet(), h.refhandler.AsOptionSet(), h.schema}
+}
+
+func (h *ResourceSpecHandler) AddFlags(fs *pflag.FlagSet) {
+	h.rschandler.AddFlags(fs)
+	h.srchandler.AddFlags(fs)
+	h.refhandler.AddFlags(fs)
+	fs.StringVarP(&h.version, "version", "v", "", "default version for components")
+	h.schema.AddFlags(fs)
+}
+
+func (h *ResourceSpecHandler) WithCLIOptions(opts ...options.Options) *ResourceSpecHandler {
+	h.rschandler.WithCLIOptions(opts...)
+	h.srchandler.WithCLIOptions(opts...)
+	h.refhandler.WithCLIOptions(opts...)
+	return h
 }
 
 func (*ResourceSpecHandler) Key() string {
@@ -74,7 +105,7 @@ func (h *ResourceSpecHandler) Add(ctx clictx.Context, ictx inputs.Context, elem 
 	}
 	comp, err := repo.LookupComponent(r.Name)
 	if err != nil {
-		return errors.ErrNotFound(errors.KIND_COMPONENT, r.Name)
+		return errors.ErrNotFound(errkind.KIND_COMPONENT, r.Name)
 	}
 	final.Close(comp)
 
@@ -86,13 +117,20 @@ func (h *ResourceSpecHandler) Add(ctx clictx.Context, ictx inputs.Context, elem 
 
 	cd := cv.GetDescriptor()
 
-	schema := h.schema
+	opts := h.srchandler.AsOptionSet()[0].(*addhdlrs.Options)
+	if !opts.Replace {
+		cd.Resources = nil
+		cd.Sources = nil
+		cd.References = nil
+	}
+
+	schema := h.schema.Schema
 	if r.Meta.ConfiguredVersion != "" {
 		schema = r.Meta.ConfiguredVersion
 	}
 	if schema != "" {
 		if compdesc.DefaultSchemes[schema] == nil {
-			return errors.ErrUnknown(errors.KIND_SCHEMAVERSION, schema)
+			return errors.ErrUnknown(errkind.KIND_SCHEMAVERSION, schema)
 		}
 		cd.Metadata.ConfiguredVersion = schema
 	}
@@ -103,15 +141,23 @@ func (h *ResourceSpecHandler) Add(ctx clictx.Context, ictx inputs.Context, elem 
 		cd.CreationTime = metav1.NewTimestampP()
 	}
 
-	err = handle(ctx, ictx, elem.Source(), cv, r.Sources, srcs.ResourceSpecHandler{})
+	err = handle(ctx, ictx, elem.Source(), cv, r.Sources, h.srchandler)
 	if err != nil {
 		return err
 	}
-	err = handle(ctx, ictx, elem.Source(), cv, r.Resources, rscs.ResourceSpecHandler{})
+	err = handle(ctx, ictx, elem.Source(), cv, r.Resources, h.rschandler)
 	if err != nil {
 		return err
 	}
-	err = handle(ctx, ictx, elem.Source(), cv, r.References, refs.ResourceSpecHandler{})
+
+	if len(r.References) > 0 && len(r.OldReferences) > 0 {
+		return fmt.Errorf("only field references or componentReferences (deprecated) is possible")
+	}
+	err = handle(ctx, ictx, elem.Source(), cv, r.References, h.refhandler)
+	if err != nil {
+		return err
+	}
+	err = handle(ctx, ictx, elem.Source(), cv, r.OldReferences, h.refhandler)
 	if err != nil {
 		return err
 	}
@@ -127,7 +173,7 @@ func handle[T addhdlrs.ElementSpec](ctx clictx.Context, ictx inputs.Context, si 
 	return common.ProcessElements(ictx, cv, elems, h)
 }
 
-// //////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 type ResourceSpec struct {
 	// Meta enabled to specify information for the serialization
@@ -137,12 +183,19 @@ type ResourceSpec struct {
 	// Sources defines sources that produced the component
 	Sources []*srcs.ResourceSpec `json:"sources"`
 	// References references component dependencies that can be resolved in the current context.
-	References []*refs.ResourceSpec `json:"componentReferences"`
+	References []*refs.ResourceSpec `json:"references"`
+	// OldReferences references component dependencies that can be resolved in the current context.
+	// Deprecated: use field References.
+	OldReferences []*refs.ResourceSpec `json:"componentReferences"`
 	// Resources defines all resources that are created by the component and by a third party.
 	Resources []*rscs.ResourceSpec `json:"resources"`
 }
 
 var _ addhdlrs.ElementSpec = (*ResourceSpec)(nil)
+
+func (r *ResourceSpec) GetRawIdentity() metav1.Identity {
+	return metav1.NewIdentity(r.Name, metav1.SystemIdentityVersion, r.Version)
+}
 
 func (r *ResourceSpec) Info() string {
 	return fmt.Sprintf("component %s:%s", r.Name, r.Version)

@@ -1,31 +1,28 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package get
 
 import (
 	"fmt"
 
+	"github.com/mandelsoft/goutils/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/common/options/closureoption"
-	ocmcommon "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/handlers/comphdlr"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/repooption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/schemaoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/versionconstraintsoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/names"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/options"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/output"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/processing"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc"
-	compdescv2 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/versions/v2"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm"
+	"ocm.software/ocm/api/ocm/compdesc"
+	compdescv2 "ocm.software/ocm/api/ocm/compdesc/versions/v2"
+	"ocm.software/ocm/cmds/ocm/commands/common/options/closureoption"
+	ocmcommon "ocm.software/ocm/cmds/ocm/commands/ocmcmds/common"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/handlers/comphdlr"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/repooption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/schemaoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/versionconstraintsoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/names"
+	"ocm.software/ocm/cmds/ocm/commands/verbs"
+	"ocm.software/ocm/cmds/ocm/common/options"
+	"ocm.software/ocm/cmds/ocm/common/output"
+	"ocm.software/ocm/cmds/ocm/common/processing"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 var (
@@ -62,9 +59,10 @@ Get lists all component versions specified, if only a component is specified
 all versions are listed.
 `,
 		Example: `
-$ ocm get componentversion ghcr.io/mandelsoft/kubelink
-$ ocm get componentversion --repo OCIRegistry::ghcr.io mandelsoft/kubelink
+$ ocm get componentversion ghcr.io/open-component-model/ocm//ocm.software/ocmcli:0.17.0
+$ ocm get componentversion --repo OCIRegistry::ghcr.io/open-component-model/ocm ocm.software/ocmcli:0.17.0
 `,
+		Annotations: map[string]string{"ExampleCodeStyle": "bash"},
 	}
 }
 
@@ -76,16 +74,16 @@ func (o *Command) Complete(args []string) error {
 	return nil
 }
 
-func (o *Command) Run() error {
+func (o *Command) Run() (err error) {
 	session := ocm.NewSession(nil)
-	defer session.Close()
+	defer errors.PropagateError(&err, session.Close)
 
-	err := o.ProcessOnOptions(ocmcommon.CompleteOptionsWithSession(o, session))
+	err = o.ProcessOnOptions(ocmcommon.CompleteOptionsWithSession(o, session))
 	if err != nil {
 		return err
 	}
 	handler := comphdlr.NewTypeHandler(o.Context.OCM(), session, repooption.From(o).Repository, comphdlr.OptionsFor(o))
-	return utils.HandleArgs(output.From(o), handler, o.Refs...)
+	return utils.HandleArgs(output.From(o).WithSession(session), handler, o.Refs...)
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -107,13 +105,29 @@ func TableOutput(opts *output.Options, mapping processing.MappingFunction, wide 
 
 /////////////////////////////////////////////////////////////////////////////
 
+type FailedEntry struct {
+	Scheme  string `json:"scheme,omitempty"`
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	Error   string `json:"error"`
+}
+
 func Format(opts *output.Options) processing.ProcessChain {
 	o := schemaoption.From(opts)
 	if o.Schema == compdesc.InternalSchemaVersion {
 		return nil
 	}
 	return processing.Map(func(in interface{}) interface{} {
-		desc := comphdlr.Elem(in).GetDescriptor()
+		cv := comphdlr.Elem(in)
+		if cv == nil {
+			nv := in.(*comphdlr.Object).Spec.NameVersion()
+			return &FailedEntry{
+				Name:    nv.GetName(),
+				Version: nv.GetVersion(),
+				Error:   "not found",
+			}
+		}
+		desc := cv.GetDescriptor()
 		schema := o.Schema
 		if schema == "" {
 			schema = desc.SchemaVersion()
@@ -121,14 +135,9 @@ func Format(opts *output.Options) processing.ProcessChain {
 		if schema == "" {
 			schema = compdescv2.SchemaVersion
 		}
-		out, err := compdesc.Convert(desc, compdesc.SchemaVersion(o.Schema))
+		out, err := compdesc.Convert(desc, compdesc.SchemaVersion(schema))
 		if err != nil {
-			return struct {
-				Scheme  string `json:"scheme"`
-				Name    string `json:"name"`
-				Version string `json:"version"`
-				Error   string `json:"error"`
-			}{
+			return &FailedEntry{
 				Scheme:  desc.SchemaVersion(),
 				Name:    desc.GetName(),
 				Version: desc.GetVersion(),

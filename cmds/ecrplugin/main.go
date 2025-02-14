@@ -1,17 +1,13 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package main
 
 import (
 	"os"
 
-	"github.com/open-component-model/ocm/cmds/ecrplugin/actions"
-	"github.com/open-component-model/ocm/cmds/ecrplugin/config"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/plugin/ppi"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/plugin/ppi/cmds"
-	"github.com/open-component-model/ocm/pkg/version"
+	"ocm.software/ocm/api/ocm/plugin/ppi"
+	"ocm.software/ocm/api/ocm/plugin/ppi/cmds"
+	"ocm.software/ocm/api/version"
+	"ocm.software/ocm/cmds/ecrplugin/actions"
+	"ocm.software/ocm/cmds/ecrplugin/config"
 )
 
 func main() {

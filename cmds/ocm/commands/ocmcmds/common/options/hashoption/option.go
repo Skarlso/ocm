@@ -1,22 +1,20 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package hashoption
 
 import (
+	"github.com/mandelsoft/goutils/errors"
 	"github.com/spf13/pflag"
 
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/options"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/attrs/signingattr"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/normalizations/jsonv1"
-	ocmsign "github.com/open-component-model/ocm/pkg/contexts/ocm/signing"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/listformat"
-	"github.com/open-component-model/ocm/pkg/signing"
-	"github.com/open-component-model/ocm/pkg/signing/hasher/sha256"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm/compdesc"
+	"ocm.software/ocm/api/ocm/compdesc/normalizations/jsonv1"
+	"ocm.software/ocm/api/ocm/compdesc/normalizations/jsonv2"
+	"ocm.software/ocm/api/ocm/compdesc/normalizations/jsonv3"
+	"ocm.software/ocm/api/ocm/extensions/attrs/signingattr"
+	ocmsign "ocm.software/ocm/api/ocm/tools/signing"
+	"ocm.software/ocm/api/tech/signing"
+	"ocm.software/ocm/api/tech/signing/hasher/sha256"
+	"ocm.software/ocm/api/utils/listformat"
+	"ocm.software/ocm/cmds/ocm/common/options"
 )
 
 func From(o options.OptionSetProvider) *Option {
@@ -38,13 +36,13 @@ type Option struct {
 }
 
 func (o *Option) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVarP(&o.NormAlgorithm, "normalization", "N", jsonv1.Algorithm, "normalization algorithm")
+	fs.StringVarP(&o.NormAlgorithm, "normalization", "N", jsonv3.Algorithm, "normalization algorithm")
 	fs.StringVarP(&o.hashAlgorithm, "hash", "H", sha256.Algorithm, "hash algorithm")
 }
 
 func (o *Option) Configure(ctx clictx.Context) error {
 	if o.NormAlgorithm == "" {
-		o.NormAlgorithm = jsonv1.Algorithm
+		o.NormAlgorithm = jsonv3.Algorithm
 	}
 	if o.hashAlgorithm == "" {
 		o.hashAlgorithm = sha256.Algorithm
@@ -63,7 +61,18 @@ func (o *Option) Configure(ctx clictx.Context) error {
 func (o *Option) Usage() string {
 	s := `
 The following normalization modes are supported with option <code>--normalization</code>:
-` + listformat.FormatList(jsonv1.Algorithm, compdesc.Normalizations.Names()...)
+` + listformat.FormatList(jsonv3.Algorithm, compdesc.Normalizations.Names()...)
+
+	s += `
+
+Note that the normalization algorithm is important to be equivalent when used for signing and verification, otherwise
+the verification can fail. Please always migrate to the latest normalization algorithm whenever possible.
+New signature algorithms can be used as soon as they are available in the component version after signing it.
+
+The algorithms ` + jsonv1.Algorithm + ` and ` + jsonv2.Algorithm + ` are deprecated and should not be used anymore.
+Please switch to ` + jsonv3.Algorithm + ` as soon as possible.
+
+`
 
 	s += `
 

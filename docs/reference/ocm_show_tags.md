@@ -2,13 +2,13 @@
 
 ### Synopsis
 
-```
+```bash
 ocm show tags [<options>] <component> {<version pattern>}
 ```
 
 ### Options
 
-```
+```text
   -h, --help          help for tags
   -l, --latest        show only latest tags
       --repo string   repository name or spec
@@ -17,7 +17,6 @@ ocm show tags [<options>] <component> {<version pattern>}
 ```
 
 ### Description
-
 
 Match tags of an artifact against some patterns.
 
@@ -29,7 +28,7 @@ relative to the specified registry using the syntax
     <pre>&lt;OCI repository name>[:&lt;tag>][@&lt;digest>]</pre>
 </center>
 
-If no <code>--repo</code> option is specified the given names are interpreted 
+If no <code>--repo</code> option is specified the given names are interpreted
 as extended OCI artifact references.
 
 <center>
@@ -45,7 +44,7 @@ The <code>--repo</code> option takes a repository/OCI registry specification:
 For the *Common Transport Format* the types <code>directory</code>,
 <code>tar</code> or <code>tgz</code> are possible.
 
-Using the JSON variant any repository types supported by the 
+Using the JSON variant any repository types supported by the
 linked library can be used:
   - <code>ArtifactSet</code>: v1
   - <code>CommonTransportFormat</code>: v1
@@ -55,16 +54,16 @@ linked library can be used:
   - <code>oci</code>: v1
   - <code>ociRegistry</code>
 
-
 ### Examples
 
-```
-$ oci show tags ghcr.io/mandelsoft/kubelink
+```bash
+$ ocm show tags ghcr.io/open-component-model/ocm/ocm.software/ocmcli/ocmcli-image
+$ ocm oci show tags ghcr.io/open-component-model/ocm/ocm.software/ocmcli/ocmcli-image
 ```
 
 ### SEE ALSO
 
-##### Parents
+#### Parents
 
 * [ocm show](ocm_show.md)	 &mdash; Show tags or versions
 * [ocm](ocm.md)	 &mdash; Open Component Model command line client

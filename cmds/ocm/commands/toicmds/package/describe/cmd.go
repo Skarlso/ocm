@@ -1,37 +1,32 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package describe
 
 import (
 	"fmt"
 	"strings"
 
+	"github.com/mandelsoft/goutils/errors"
 	"github.com/spf13/cobra"
 
-	ocmcommon "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/handlers/comphdlr"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/repooption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/toicmds/names"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/toicmds/package/bootstrap"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/output"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	topicbootstrap "github.com/open-component-model/ocm/cmds/ocm/topics/toi/bootstrapping"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/oci/repositories/ocireg"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/attrs/ociuploadattr"
-	metav1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
-	utils2 "github.com/open-component-model/ocm/pkg/contexts/ocm/utils"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/out"
-	"github.com/open-component-model/ocm/pkg/toi"
-	"github.com/open-component-model/ocm/pkg/toi/install"
-	utils3 "github.com/open-component-model/ocm/pkg/utils"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/oci/extensions/repositories/ocireg"
+	"ocm.software/ocm/api/ocm"
+	metav1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	"ocm.software/ocm/api/ocm/extensions/attrs/ociuploadattr"
+	"ocm.software/ocm/api/ocm/resourcerefs"
+	"ocm.software/ocm/api/ocm/tools/toi"
+	"ocm.software/ocm/api/ocm/tools/toi/install"
+	utils3 "ocm.software/ocm/api/utils"
+	common "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/api/utils/out"
+	ocmcommon "ocm.software/ocm/cmds/ocm/commands/ocmcmds/common"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/handlers/comphdlr"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/repooption"
+	"ocm.software/ocm/cmds/ocm/commands/toicmds/names"
+	"ocm.software/ocm/cmds/ocm/commands/toicmds/package/bootstrap"
+	"ocm.software/ocm/cmds/ocm/commands/verbs"
+	"ocm.software/ocm/cmds/ocm/common/output"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 const (
@@ -65,7 +60,7 @@ Describe a TOI package provided by a resource of an OCM component version.
 
 The package resource must have the type <code>` + toi.TypeTOIPackage + `</code>.
 This is a simple YAML file resource describing the bootstrapping of a dedicated kind
-of software. See also the topic <CMD>ocm toi toi-bootstrapping</CMD>.
+of software. See also the topic <CMD>ocm toi-bootstrapping</CMD>.
 
 The first matching resource of this type is selected. Optionally a set of
 identity attribute can be specified used to refine the match. This can be the
@@ -74,8 +69,8 @@ resource name and/or other key/value pairs (<code>&lt;attr>=&lt;value></code>).
 		Example: `
 $ ocm toi describe package ghcr.io/mandelsoft/ocm//ocmdemoinstaller:0.0.1-dev
 `,
+		Annotations: map[string]string{"ExampleCodeStyle": "bash"},
 	}
-	cmd.AddCommand(topicbootstrap.New(o.Context, "toi-bootstrapping"))
 	return cmd
 }
 
@@ -167,7 +162,7 @@ func (a *action) describe(cv ocm.ComponentVersionAccess) error {
 	rid := metav1.NewResourceRef(a.cmd.Id)
 	resolver := lookupoption.From(a.cmd)
 
-	ires, eff, err := utils2.MatchResourceReference(cv, toi.TypeTOIPackage, rid, resolver)
+	ires, eff, err := resourcerefs.MatchResourceReference(cv, toi.TypeTOIPackage, rid, resolver)
 	if err != nil {
 		return errors.Wrapf(err, "package resource in %s", nv)
 	}

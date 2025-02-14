@@ -1,42 +1,69 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package rscs
 
 import (
 	"fmt"
 
+	"github.com/mandelsoft/goutils/errors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc"
-	metav1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
-	compdescv2 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/versions/v2"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/runtime"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/ocm"
+	"ocm.software/ocm/api/ocm/compdesc"
+	metav1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	compdescv2 "ocm.software/ocm/api/ocm/compdesc/versions/v2"
+	"ocm.software/ocm/api/utils/runtime"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/addhdlrs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/skipdigestoption"
+	"ocm.software/ocm/cmds/ocm/common/options"
 )
 
 const (
 	ComponentVersionTag = common.ComponentVersionTag
 )
 
-type ResourceSpecHandler struct{}
+type ResourceSpecHandler struct {
+	addhdlrs.ResourceSpecHandlerBase
+	opts *ocm.ModificationOptions
+}
 
-var _ common.ResourceSpecHandler = (*ResourceSpecHandler)(nil)
+var (
+	_ common.ResourceSpecHandler = (*ResourceSpecHandler)(nil)
+	_ options.Options            = (*ResourceSpecHandler)(nil)
+)
 
-func (ResourceSpecHandler) Key() string {
+func New(opts ...ocm.ModificationOption) *ResourceSpecHandler {
+	h := &ResourceSpecHandler{ResourceSpecHandlerBase: addhdlrs.NewBase(options.OptionSet{skipdigestoption.New()})}
+	if len(opts) > 0 {
+		h.opts = ocm.NewModificationOptions(opts...)
+	}
+	return h
+}
+
+func (h *ResourceSpecHandler) WithCLIOptions(opts ...options.Options) *ResourceSpecHandler {
+	return &ResourceSpecHandler{
+		h.ResourceSpecHandlerBase.WithCLIOptions(opts...),
+		h.opts,
+	}
+}
+
+func (h *ResourceSpecHandler) getModOpts() []ocm.ModificationOption {
+	opts := options.FindOptions[ocm.ModificationOption](h.AsOptionSet())
+	if h.opts != nil {
+		opts = append(opts, h.opts)
+	}
+	return opts
+}
+
+func (*ResourceSpecHandler) Key() string {
 	return "resource"
 }
 
-func (ResourceSpecHandler) RequireInputs() bool {
+func (*ResourceSpecHandler) RequireInputs() bool {
 	return true
 }
 
-func (ResourceSpecHandler) Decode(data []byte) (addhdlrs.ElementSpec, error) {
+func (*ResourceSpecHandler) Decode(data []byte) (addhdlrs.ElementSpec, error) {
 	var desc ResourceSpec
 	err := runtime.DefaultYAMLEncoding.Unmarshal(data, &desc)
 	if err != nil {
@@ -45,7 +72,7 @@ func (ResourceSpecHandler) Decode(data []byte) (addhdlrs.ElementSpec, error) {
 	return &desc, nil
 }
 
-func (ResourceSpecHandler) Set(v ocm.ComponentVersionAccess, r addhdlrs.Element, acc compdesc.AccessSpec) error {
+func (h *ResourceSpecHandler) Set(v ocm.ComponentVersionAccess, r addhdlrs.Element, acc compdesc.AccessSpec) error {
 	spec, ok := r.Spec().(*ResourceSpec)
 	if !ok {
 		return fmt.Errorf("element spec is not a valid resource spec, failed to assert type %T to ResourceSpec", r.Spec())
@@ -70,11 +97,20 @@ func (ResourceSpecHandler) Set(v ocm.ComponentVersionAccess, r addhdlrs.Element,
 			ExtraIdentity: spec.ExtraIdentity,
 			Labels:        spec.Labels,
 		},
-		Type:      spec.Type,
-		Relation:  spec.Relation,
-		SourceRef: compdescv2.ConvertSourcerefsTo(spec.SourceRef),
+		Type:       spec.Type,
+		Relation:   spec.Relation,
+		SourceRefs: compdescv2.ConvertSourcerefsTo(spec.SourceRefs),
 	}
-	return v.SetResource(meta, acc)
+	opts := h.getModOpts()
+	if spec.Options.SkipDigestGeneration {
+		opts = append(opts, ocm.SkipDigest()) //nolint:staticcheck // skip digest still used for tests
+	}
+	/*
+		if ocm.IsIntermediate(v.Repository().GetSpecification()) {
+			opts = append(opts, ocm.ModifyElement())
+		}
+	*/
+	return v.SetResource(meta, acc, opts...)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -89,14 +125,36 @@ type ResourceSpec struct {
 	// Can be a local or external resource
 	Relation metav1.ResourceRelation `json:"relation,omitempty"`
 
-	// SourceRef defines a list of source names.
-	// These names reference the sources defines in `component.sources`.
-	SourceRef []compdescv2.SourceRef `json:"srcRef"`
+	// SourceRefs defines a list of source names.
+	// These entries reference the sources defined in the
+	// component.sources.
+	SourceRefs []compdescv2.SourceRef `json:"srcRefs"`
 
 	addhdlrs.ResourceInput `json:",inline"`
+
+	// Options describes additional process related options
+	// see ResourceOptions for more details.
+	Options ResourceOptions `json:"options,omitempty"`
+}
+
+// ResourceOptions describes additional process related options
+// which reflect the handling of the resource without describing it directly.
+// Typical examples are any options that require specific changes in handling of the resource
+// but are not reflected in the resource itself (outside of side effects)
+type ResourceOptions struct {
+	// SkipDigestGeneration omits the digest generation.
+	SkipDigestGeneration bool `json:"skipDigestGeneration,omitempty"`
 }
 
 var _ addhdlrs.ElementSpec = (*ResourceSpec)(nil)
+
+func (r *ResourceSpec) GetType() string {
+	return r.Type
+}
+
+func (r *ResourceSpec) GetRawIdentity() metav1.Identity {
+	return r.ElementMeta.GetRawIdentity()
+}
 
 func (r *ResourceSpec) Info() string {
 	return fmt.Sprintf("resource %s: %s", r.Type, r.GetRawIdentity())
@@ -121,21 +179,10 @@ func (r *ResourceSpec) Validate(ctx clictx.Context, input *addhdlrs.ResourceInpu
 		ElementMeta: r.ElementMeta,
 		Type:        r.Type,
 		Relation:    r.Relation,
-		SourceRef:   r.SourceRef,
+		SourceRefs:  r.SourceRefs,
 	}
 	if err := compdescv2.ValidateResource(fldPath, rsc, false); err != nil {
 		allErrs = append(allErrs, err...)
-	}
-
-	if input.Access != nil {
-		if r.Relation == metav1.LocalRelation {
-			allErrs = append(allErrs, field.Forbidden(fldPath.Child("relation"), "access requires external relation"))
-		}
-	}
-	if input.Input != nil {
-		if r.Relation != metav1.LocalRelation {
-			allErrs = append(allErrs, field.Forbidden(fldPath.Child("relation"), "input requires local relation"))
-		}
 	}
 	return allErrs.ToAggregate()
 }

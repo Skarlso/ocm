@@ -1,20 +1,15 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package directory
 
 import (
-	"compress/gzip"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/inputs/cpi"
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	"github.com/open-component-model/ocm/pkg/mime"
-	"github.com/open-component-model/ocm/pkg/utils/tarutils"
+	"ocm.software/ocm/api/utils"
+	"ocm.software/ocm/api/utils/blobaccess"
+	"ocm.software/ocm/api/utils/blobaccess/dirtree"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/inputs/cpi"
 )
 
 type Spec struct {
@@ -59,7 +54,7 @@ func (s *Spec) Validate(fldPath *field.Path, ctx inputs.Context, inputFilePath s
 	return allErrs
 }
 
-func (s *Spec) GetBlob(ctx inputs.Context, info inputs.InputResourceInfo) (accessio.TemporaryBlobAccess, string, error) {
+func (s *Spec) GetBlob(ctx inputs.Context, info inputs.InputResourceInfo) (blobaccess.BlobAccess, string, error) {
 	fs := ctx.FileSystem()
 	inputInfo, inputPath, err := inputs.FileInfo(ctx, s.Path, info.InputFilePath)
 	if err != nil {
@@ -69,33 +64,14 @@ func (s *Spec) GetBlob(ctx inputs.Context, info inputs.InputResourceInfo) (acces
 		return nil, "", fmt.Errorf("resource type is dir but a file was provided")
 	}
 
-	opts := tarutils.TarFileSystemOptions{
-		IncludeFiles:   s.IncludeFiles,
-		ExcludeFiles:   s.ExcludeFiles,
-		PreserveDir:    s.PreserveDir != nil && *s.PreserveDir,
-		FollowSymlinks: s.FollowSymlinks != nil && *s.FollowSymlinks,
-	}
-
-	temp, err := accessio.NewTempFile(fs, "", "resourceblob*.tgz")
-	if err != nil {
-		return nil, "", err
-	}
-	defer temp.Close()
-
-	if s.Compress() {
-		s.SetMediaTypeIfNotDefined(mime.MIME_TGZ)
-		gw := gzip.NewWriter(temp.Writer())
-		if err := tarutils.PackFsIntoTar(fs, inputPath, gw, opts); err != nil {
-			return nil, "", fmt.Errorf("unable to tar input artifact: %w", err)
-		}
-		if err := gw.Close(); err != nil {
-			return nil, "", fmt.Errorf("unable to close gzip writer: %w", err)
-		}
-	} else {
-		s.SetMediaTypeIfNotDefined(mime.MIME_TAR)
-		if err := tarutils.PackFsIntoTar(fs, inputPath, temp.Writer(), opts); err != nil {
-			return nil, "", fmt.Errorf("unable to tar input artifact: %w", err)
-		}
-	}
-	return temp.AsBlob(s.MediaType), "", nil
+	access, err := dirtree.BlobAccess(inputPath,
+		dirtree.WithMimeType(s.MediaType),
+		dirtree.WithFileSystem(fs),
+		dirtree.WithCompressWithGzip(s.Compress()),
+		dirtree.WithIncludeFiles(s.IncludeFiles),
+		dirtree.WithExcludeFiles(s.ExcludeFiles),
+		dirtree.WithFollowSymlinks(utils.AsBool(s.FollowSymlinks)),
+		dirtree.WithPreserveDir(utils.AsBool(s.PreserveDir)),
+	)
+	return access, "", err
 }

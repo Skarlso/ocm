@@ -2,19 +2,19 @@
 
 ### Synopsis
 
-```
+```bash
 ocm install plugins [<options>] <component version ref> [<name>] | <name>
 ```
 
-##### Aliases
+#### Aliases
 
-```
+```text
 plugins, plugin, p
 ```
 
 ### Options
 
-```
+```text
   -c, --constraints constraints   version constraint
   -d, --describe                  describe plugin, only
   -f, --force                     overwrite existing plugin
@@ -25,9 +25,8 @@ plugins, plugin, p
 
 ### Description
 
-
 Download and install a plugin provided by an OCM component version.
-For the update mode only the plugin name is required. 
+For the update mode only the plugin name is required.
 
 If no version is specified the latest version is chosen. If at least one
 version constraint is given, only the matching versions are considered.
@@ -40,7 +39,7 @@ relative to the specified repository using the syntax
     <pre>&lt;component>[:&lt;version>]</pre>
 </center>
 
-If no <code>--repo</code> option is specified the given names are interpreted 
+If no <code>--repo</code> option is specified the given names are interpreted
 as located OCM component version references:
 
 <center>
@@ -63,25 +62,19 @@ The <code>--repo</code> option takes an OCM repository specification:
 For the *Common Transport Format* the types <code>directory</code>,
 <code>tar</code> or <code>tgz</code> is possible.
 
-Using the JSON variant any repository types supported by the 
+Using the JSON variant any repository types supported by the
 linked library can be used:
 
-Dedicated OCM repository types:
-  - <code>ComponentArchive</code>: v1
-
 OCI Repository types (using standard component repository to OCI mapping):
-  - <code>ArtifactSet</code>: v1
+
   - <code>CommonTransportFormat</code>: v1
-  - <code>DockerDaemon</code>: v1
-  - <code>Empty</code>: v1
   - <code>OCIRegistry</code>: v1
   - <code>oci</code>: v1
   - <code>ociRegistry</code>
 
-
 ### Examples
 
-```
+```bash
 $ ocm install plugin ghcr.io/github.com/mandelsoft/cnudie//github.com/mandelsoft/ocmplugin:0.1.0-dev
 $ ocm install plugin -c 1.2.x ghcr.io/github.com/mandelsoft/cnudie//github.com/mandelsoft/ocmplugin
 $ ocm install plugin -u demo
@@ -90,8 +83,8 @@ $ ocm install plugin -r demo
 
 ### SEE ALSO
 
-##### Parents
+#### Parents
 
-* [ocm install](ocm_install.md)	 &mdash; Install elements.
+* [ocm install](ocm_install.md)	 &mdash; Install new OCM CLI components
 * [ocm](ocm.md)	 &mdash; Open Component Model command line client
 

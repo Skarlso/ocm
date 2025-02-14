@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package logging
 
 import (
@@ -11,10 +7,10 @@ import (
 	"github.com/mandelsoft/logging"
 	"github.com/spf13/cobra"
 
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/datacontext"
-	logcfg "github.com/open-component-model/ocm/pkg/contexts/datacontext/config/logging"
-	utils2 "github.com/open-component-model/ocm/pkg/listformat"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/datacontext"
+	logcfg "ocm.software/ocm/api/datacontext/config/logging"
+	utils2 "ocm.software/ocm/api/utils/listformat"
 )
 
 func New(ctx clictx.Context) *cobra.Command {
@@ -29,13 +25,14 @@ func New(ctx clictx.Context) *cobra.Command {
       rules:
         - ...
 `,
+		Annotations: map[string]string{"ExampleCodeStyle": "yaml"},
 		Long: `
 Logging can be configured as part of the ocm config file (<CMD>ocm configfile</CMD>)
 or by command line options of the <CMD>ocm</CMD> command. Details about
 the YAML structure of a logging settings can be found on https://github.com/mandelsoft/logging.
 
 The command line also supports some quick-config options for enabling log levels
-for dedicated tags and realms (logging keys).
+for dedicated tags and realms or realm prefixes (logging keys).
 
 ` + describe("tags", logging.GetTagDefinitions()) + `
 

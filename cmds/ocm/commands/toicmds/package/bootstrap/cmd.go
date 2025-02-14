@@ -1,41 +1,36 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package bootstrap
 
 import (
 	"fmt"
 
+	"github.com/mandelsoft/goutils/errors"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	ocmcommon "github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/handlers/comphdlr"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/ocmcmds/common/options/repooption"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/toicmds/names"
-	"github.com/open-component-model/ocm/cmds/ocm/commands/verbs"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/output"
-	"github.com/open-component-model/ocm/cmds/ocm/pkg/utils"
-	topicbootstrap "github.com/open-component-model/ocm/cmds/ocm/topics/toi/bootstrapping"
-	"github.com/open-component-model/ocm/pkg/common"
-	"github.com/open-component-model/ocm/pkg/common/accessio"
-	"github.com/open-component-model/ocm/pkg/contexts/clictx"
-	"github.com/open-component-model/ocm/pkg/contexts/oci/repositories/ocireg"
-	"github.com/open-component-model/ocm/pkg/contexts/ocm"
-	v1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
-	"github.com/open-component-model/ocm/pkg/errors"
-	"github.com/open-component-model/ocm/pkg/listformat"
-	"github.com/open-component-model/ocm/pkg/out"
-	"github.com/open-component-model/ocm/pkg/runtime"
-	"github.com/open-component-model/ocm/pkg/toi"
-	defaultd "github.com/open-component-model/ocm/pkg/toi/drivers/default"
-	"github.com/open-component-model/ocm/pkg/toi/drivers/docker"
-	"github.com/open-component-model/ocm/pkg/toi/drivers/filesystem"
-	"github.com/open-component-model/ocm/pkg/toi/install"
-	utils2 "github.com/open-component-model/ocm/pkg/utils"
+	clictx "ocm.software/ocm/api/cli"
+	"ocm.software/ocm/api/oci/extensions/repositories/ocireg"
+	"ocm.software/ocm/api/ocm"
+	v1 "ocm.software/ocm/api/ocm/compdesc/meta/v1"
+	"ocm.software/ocm/api/ocm/tools/toi"
+	defaultd "ocm.software/ocm/api/ocm/tools/toi/drivers/default"
+	"ocm.software/ocm/api/ocm/tools/toi/drivers/docker"
+	"ocm.software/ocm/api/ocm/tools/toi/drivers/filesystem"
+	"ocm.software/ocm/api/ocm/tools/toi/install"
+	utils2 "ocm.software/ocm/api/utils"
+	"ocm.software/ocm/api/utils/blobaccess"
+	"ocm.software/ocm/api/utils/listformat"
+	common "ocm.software/ocm/api/utils/misc"
+	"ocm.software/ocm/api/utils/out"
+	"ocm.software/ocm/api/utils/runtime"
+	ocmcommon "ocm.software/ocm/cmds/ocm/commands/ocmcmds/common"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/handlers/comphdlr"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/lookupoption"
+	"ocm.software/ocm/cmds/ocm/commands/ocmcmds/common/options/repooption"
+	"ocm.software/ocm/cmds/ocm/commands/toicmds/names"
+	"ocm.software/ocm/cmds/ocm/commands/verbs"
+	"ocm.software/ocm/cmds/ocm/common/output"
+	"ocm.software/ocm/cmds/ocm/common/utils"
 )
 
 const (
@@ -57,8 +52,8 @@ type Command struct {
 	CredentialsFile string
 	ParameterFile   string
 	OutputFile      string
-	Credentials     accessio.DataSource
-	Parameters      accessio.DataSource
+	Credentials     blobaccess.DataSource
+	Parameters      blobaccess.DataSource
 	Config          map[string]string
 	EnvDir          string
 }
@@ -86,7 +81,7 @@ This resource finally describes an executor image, which will be executed in a
 container with the installation source and (instance specific) user settings.
 The container is just executed, the framework make no assumption about the
 meaning/outcome of the execution. Therefore, any kind of actions can be described and
-issued this way, not on installation handling.
+issued this way, not only installation handling.
 
 The first matching resource of this type is selected. Optionally a set of
 identity attribute can be specified used to refine the match. This can be the
@@ -167,8 +162,8 @@ locally with
 		Example: `
 $ ocm toi bootstrap package ghcr.io/mandelsoft/ocm//ocmdemoinstaller:0.0.1-dev
 `,
+		Annotations: map[string]string{"ExampleCodeStyle": "bash"},
 	}
-	cmd.AddCommand(topicbootstrap.New(o.Context, "toi-bootstrapping"))
 	return cmd
 }
 
@@ -189,17 +184,22 @@ func (o *Command) Complete(args []string) error {
 		return errors.Wrapf(err, "bootstrap resource identity pattern")
 	}
 	if len(o.CredentialsFile) == 0 {
-		if ok, _ := vfs.FileExists(o.FileSystem(), DEFAULT_CREDENTIALS_FILE); ok {
+		ok, err := vfs.FileExists(o.FileSystem(), DEFAULT_CREDENTIALS_FILE)
+		if err != nil {
+			return err
+		}
+
+		if ok {
 			o.CredentialsFile = DEFAULT_CREDENTIALS_FILE
 		}
 	}
 	o.Id = id
 	if len(o.CredentialsFile) > 0 {
-		data, err := vfs.ReadFile(o.Context.FileSystem(), o.CredentialsFile)
+		data, err := utils2.ReadFile(o.CredentialsFile, o.Context.FileSystem())
 		if err != nil {
 			return errors.Wrapf(err, "failed reading credentials file %q", o.CredentialsFile)
 		}
-		o.Credentials = accessio.DataAccessForBytes(data, o.CredentialsFile)
+		o.Credentials = blobaccess.DataAccessForData(data, o.CredentialsFile)
 	}
 	if len(o.ParameterFile) == 0 {
 		if ok, _ := vfs.FileExists(o.FileSystem(), DEFAULT_PARAMETER_FILE); ok {
@@ -207,11 +207,11 @@ func (o *Command) Complete(args []string) error {
 		}
 	}
 	if len(o.ParameterFile) > 0 {
-		data, err := vfs.ReadFile(o.Context.FileSystem(), o.ParameterFile)
+		data, err := utils2.ReadFile(o.ParameterFile, o.Context.FileSystem())
 		if err != nil {
 			return errors.Wrapf(err, "failed reading parameter file %q", o.ParameterFile)
 		}
-		o.Parameters = accessio.DataAccessForBytes(data, o.ParameterFile)
+		o.Parameters = blobaccess.DataAccessForData(data, o.ParameterFile)
 	}
 	return nil
 }
